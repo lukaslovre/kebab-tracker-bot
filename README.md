@@ -12,6 +12,13 @@ Create your local environment file:
 cp .env.example .env
 ```
 
+Required env vars for the bot:
+
+- `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` (script app)
+- `REDDIT_USERNAME`, `REDDIT_PASSWORD` (bot account)
+- `USER_AGENT` (required by Reddit)
+- `SUBREDDIT_NAME` (e.g. `KebabLog`)
+
 To run:
 
 ```bash
