@@ -39,7 +39,7 @@ The application will require the following secrets configured in the Coolify das
 Coolify can build via Nixpacks automatically, but providing a `Dockerfile` ensures Bun is set up perfectly. The high-level Dockerfile steps will be:
 1.  Use the official `oven/bun:latest` base image.
 2.  Set the working directory to `/app`.
-3.  Copy `package.json` and `bun.lockb` -> Run `bun install`.
+3.  Copy `package.json` and `bun.lock` -> Run `bun install`.
 4.  Copy the TypeScript source code.
 5.  Ensure the `/app/data` directory exists and has the correct read/write permissions for the Bun process.
 6.  Start the bot using `bun run src/index.ts`.

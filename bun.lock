@@ -5,8 +5,6 @@
       "name": "kebab-tracker-bot",
       "devDependencies": {
         "@types/bun": "latest",
-      },
-      "peerDependencies": {
         "typescript": "^5",
       },
     },

@@ -1,0 +1,22 @@
+# Dependencies
+node_modules
+
+# Local data
+data
+*.db
+*.sqlite
+*.sqlite3
+
+# Build/test artifacts
+dist
+out
+coverage
+*.log
+
+# Secrets
+.env
+.env.*
+
+# VCS
+.git
+.gitignore
