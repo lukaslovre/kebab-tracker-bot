@@ -3,6 +3,10 @@
 ## 1. Overview
 The Kebab Tracker is a Reddit-based community bot confined to a specific subreddit (e.g., `r/KebabLog`). It serves as a unified tracker for a niche community of kebab enthusiasts. The bot tracks both the "Global Subreddit Streak" (time since *anyone* in the sub ate a kebab) and "Personal Streaks/Stats" (individual user data).
 
+## Localization & Target Locale
+
+The project targets the Croatia / Balkan region. User-facing text (bot replies, messages, and any website copy) should default to Croatian or a regionally appropriate language. Backend storage should continue to use UTC for all timestamps; user-facing time displays may default to CET/CEST for Croatian users.
+
 ## 2. Core Usefulness (The MVP)
 The core loop revolves around a single command: `!kebab`. When a user comments this command in the subreddit, the bot parses the request, updates the database, and replies with a unified "Dashboard" summarizing the event.
 
@@ -29,6 +33,8 @@ When a valid command is detected, the bot replies to the comment with a structur
 *   **Future Dates:** If a user tries to backdate to a date in the future (e.g., `!kebab 2099-01-01`), the bot should reject it with a humorous error message.
 *   **Edited Comments:** For the MVP, the bot only listens to *new* comments. If a user edits a comment to add `!kebab` later, it is ignored.
 *   **Timezones:** All database times should be stored in UTC. The bot's replies calculate the relative time delta (e.g., "2 days, 4 hours"), which avoids timezone confusion for the end user.
+
+*   **Display localization:** For Croatian/Balkan users, display times and human-facing text should default to CET/CEST and Croatian where practical; the DB retains UTC for correctness.
 
 ## 4. Extensibility (Future Scope)
 The MVP is designed to be easily expanded. Future features could include:

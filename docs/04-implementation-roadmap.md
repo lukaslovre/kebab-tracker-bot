@@ -16,7 +16,7 @@ Inputs:
 - Add baseline operational behavior: structured logs, sensible error boundaries, graceful shutdown.
 
 ## Phase 2 — Persistence + Idempotency
-- Implement SQLite initialization for the MVP schema (`global_state`, `users`, `kebab_logs`).
+- Implement SQLite initialization for the MVP schema (`users`, `kebab_logs`).
 - Make processing restart-safe:
   - ensure comments are processed at-most-once (e.g., unique `comment_id` constraint)
   - decide how the “cursor”/last-seen comment is tracked (DB vs in-memory + rely on uniqueness)
