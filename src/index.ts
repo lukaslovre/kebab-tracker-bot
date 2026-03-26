@@ -1,6 +1,7 @@
 import { loadConfig } from "./config";
 import { createLogger } from "./logger";
 import { runCommentsPoller } from "./poller/commentsPoller";
+import { KebabDb } from "./db/db";
 import { RedditAuth } from "./reddit/auth";
 import { RedditClient } from "./reddit/client";
 
@@ -18,6 +19,12 @@ async function main(): Promise<void> {
       app: "kebab-tracker-bot",
       env: config.nodeEnv,
     },
+  });
+
+  const db = KebabDb.open({
+    dbPath: config.dbPath,
+    cooldownMs: config.kebabCooldownMs,
+    logger: logger.child({ component: "db" }),
   });
 
   const abortController = new AbortController();
@@ -65,6 +72,7 @@ async function main(): Promise<void> {
   logger.info("Bot starting", {
     subreddit: config.subredditName,
     pollIntervalMs: config.polling.pollIntervalMs,
+    dbPath: config.dbPath,
   });
 
   await runCommentsPoller({
@@ -73,17 +81,29 @@ async function main(): Promise<void> {
     pollIntervalMs: config.polling.pollIntervalMs,
     logger: logger.child({ component: "comments-poller" }),
     signal,
+    cursorStore: {
+      get: () => db.getCommentsCursorFullname(),
+      set: (fullname) => db.setCommentsCursorFullname(fullname),
+    },
     onNewComment: async (comment) => {
       if (/\!kebab\b/i.test(comment.body)) {
+        const res = db.recordBasicKebabLogFromComment({
+          username: comment.author,
+          commentId: comment.id,
+          createdUtcSeconds: comment.createdUtcSeconds,
+        });
+
         logger.info("Detected !kebab command", {
           commentFullname: comment.fullname,
           author: comment.author,
           createdUtcSeconds: comment.createdUtcSeconds,
+          dbResult: res.status,
         });
       }
     },
   });
 
+  db.close();
   logger.info("Bot stopped");
 }
 

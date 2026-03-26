@@ -18,6 +18,10 @@ export async function runCommentsPoller(options: {
   pollIntervalMs: number;
   logger: Logger;
   signal: AbortSignal;
+  cursorStore?: {
+    get: () => Promise<string | undefined> | string | undefined;
+    set: (fullname: string) => Promise<void> | void;
+  };
   onNewComment: (comment: RedditComment) => Promise<void> | void;
 }): Promise<void> {
   const {
@@ -26,11 +30,15 @@ export async function runCommentsPoller(options: {
     pollIntervalMs,
     logger,
     signal,
+    cursorStore,
     onNewComment,
   } = options;
 
   const seen = new FixedSizeSet<string>(2_000);
-  let lastSeenFullname: string | undefined;
+  let lastSeenFullname: string | undefined = await cursorStore?.get();
+  if (lastSeenFullname) {
+    logger.info("Loaded persisted cursor", { lastSeenFullname });
+  }
 
   while (!signal.aborted) {
     try {
@@ -49,6 +57,7 @@ export async function runCommentsPoller(options: {
         lastSeenFullname = newest;
         seen.add(newest);
         logger.info("Initial cursor set", { lastSeenFullname });
+        await cursorStore?.set(lastSeenFullname);
         await sleep(pollIntervalMs, signal);
         continue;
       }
@@ -69,19 +78,25 @@ export async function runCommentsPoller(options: {
         const inOrder = newer.slice().reverse();
         for (const comment of inOrder) {
           if (seen.has(comment.fullname)) continue;
-          seen.add(comment.fullname);
           try {
             await onNewComment(comment);
           } catch (error) {
             logger.exception("onNewComment failed", error, {
               commentFullname: comment.fullname,
             });
+
+            // Do not advance the cursor past a failed comment.
+            // The next poll iteration will retry (and future phases can make
+            // `onNewComment` fully idempotent with DB constraints).
+            break;
           }
+
+          seen.add(comment.fullname);
+          lastSeenFullname = comment.fullname;
+          await cursorStore?.set(lastSeenFullname);
         }
       }
 
-      lastSeenFullname = newest;
-      seen.add(lastSeenFullname);
       await sleep(pollIntervalMs, signal);
     } catch (error) {
       if (signal.aborted) break;
