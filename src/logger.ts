@@ -1,5 +1,3 @@
-// TODO: How much would this be simplified by switching to Pino for example?
-
 /**
  * Minimal structured logger for long-running services.
  *
