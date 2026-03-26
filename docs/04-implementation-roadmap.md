@@ -92,7 +92,3 @@ generation, and restart safety.
 - Exact source of truth for “new comments” (OAuth listing vs public JSON; and how to choose `before/after` semantics).
 - The exact definition of “level” thresholds (can be introduced once the base stats pipeline works).
 - Final retry policy for failed Reddit replies beyond the simple backoff direction noted above.
-
-## Testing Strategy (80/20)
-
-Once Phase 3 starts, parser, date, and rating validation become the next highest-value things for testing.
