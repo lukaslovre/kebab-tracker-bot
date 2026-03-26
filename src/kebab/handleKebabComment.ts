@@ -4,7 +4,7 @@ import { RedditRateLimitError } from "../reddit/errors";
 import { type RedditComment } from "../reddit/types";
 import { type KebabDb } from "../db/db";
 import { parseKebabCommand } from "./parser";
-import { formatUtcInTimeZone, HR_TIME_ZONE } from "./time";
+import { formatUtcInTimeZone } from "./time";
 import { resolveEatenAtUtcFromCommand } from "./timeAdapter";
 import {
   renderKebabCooldownReply,
@@ -45,14 +45,14 @@ async function replyBestEffort(options: {
 }
 
 /**
- * Parse `!kebab` commands found in new comments and record them.
+ * Parse tracker commands found in new comments and record them.
  *
  * This handler is intentionally "fast": it records accepted logs immediately.
  * The actual dashboard reply is sent by a separate pending-replies worker,
  * which can retry safely without stalling the main poller.
  *
  * Important safety behavior:
- * - Ignore the bot's own comments (our reply includes `!kebab` in examples).
+ * - Ignore the bot's own comments (our reply includes command examples).
  */
 export async function handleKebabComment(options: {
   comment: RedditComment;
@@ -61,19 +61,35 @@ export async function handleKebabComment(options: {
   reddit: RedditClient;
   logger: Logger;
   signal: AbortSignal;
+  timeZone: string;
+  trackerCommand: string;
+  trackerCommandRegex: RegExp;
 }): Promise<void> {
-  const { comment, botUsername, db, reddit, logger, signal } = options;
+  const {
+    comment,
+    botUsername,
+    db,
+    reddit,
+    logger,
+    signal,
+    timeZone,
+    trackerCommand,
+    trackerCommandRegex,
+  } = options;
 
   if (sameUsername(comment.author, botUsername)) return;
 
-  const parsed = parseKebabCommand(comment.body);
+  const parsed = parseKebabCommand(comment.body, trackerCommandRegex);
   if (!parsed.found) return;
 
   if ("ok" in parsed && parsed.ok === false) {
     await replyBestEffort({
       reddit,
       commentFullname: comment.fullname,
-      markdown: renderKebabParseErrorReply(parsed.message),
+      markdown: renderKebabParseErrorReply({
+        message: parsed.message,
+        trackerCommand,
+      }),
       logger,
       signal,
     });
@@ -86,13 +102,17 @@ export async function handleKebabComment(options: {
   const resolved = resolveEatenAtUtcFromCommand({
     backdate: cmd.backdate,
     loggedAtUtc,
+    timeZone,
   });
 
   if (!resolved.ok) {
     await replyBestEffort({
       reddit,
       commentFullname: comment.fullname,
-      markdown: renderKebabParseErrorReply(resolved.message),
+      markdown: renderKebabParseErrorReply({
+        message: resolved.message,
+        trackerCommand,
+      }),
       logger,
       signal,
     });
@@ -116,7 +136,8 @@ export async function handleKebabComment(options: {
       reddit,
       commentFullname: comment.fullname,
       markdown: renderKebabCooldownReply({
-        nextAllowedAtLocal: formatUtcInTimeZone(nextAllowed, HR_TIME_ZONE),
+        nextAllowedAtLocal: formatUtcInTimeZone(nextAllowed, timeZone),
+        trackerCommand,
       }),
       logger,
       signal,
@@ -128,7 +149,7 @@ export async function handleKebabComment(options: {
     await replyBestEffort({
       reddit,
       commentFullname: comment.fullname,
-      markdown: renderKebabFutureDateReply(),
+      markdown: renderKebabFutureDateReply({ trackerCommand }),
       logger,
       signal,
     });

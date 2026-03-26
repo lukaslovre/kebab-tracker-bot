@@ -42,6 +42,9 @@ export async function runPendingRepliesWorker(options: {
   logger: Logger;
   signal: AbortSignal;
   pollIntervalMs: number;
+  timeZone: string;
+  itemsPerLevel: number;
+  trackerCommand: string;
   batchSize?: number;
   baseBackoffMs?: number;
   maxBackoffMs?: number;
@@ -53,6 +56,9 @@ export async function runPendingRepliesWorker(options: {
     logger,
     signal,
     pollIntervalMs,
+    timeZone,
+    itemsPerLevel,
+    trackerCommand,
     batchSize = 25,
     baseBackoffMs = 5_000,
     maxBackoffMs = 10 * 60_000,
@@ -101,7 +107,11 @@ export async function runPendingRepliesWorker(options: {
             throw new Error(`Missing dashboard data for log_id=${item.logId}`);
           }
 
-          const markdown = buildKebabDashboardReplyFromLogData(dash);
+          const markdown = buildKebabDashboardReplyFromLogData(dash, {
+            timeZone,
+            itemsPerLevel,
+            trackerCommand,
+          });
 
           await reddit.replyToComment({
             commentFullnameOrId: item.commentId,

@@ -15,6 +15,9 @@ export type AppConfig = {
   nodeEnv: string;
   subredditName: string;
   dbPath: string;
+  defaultTimezone: string;
+  itemsPerLevel: number;
+  trackerCommand: string;
   kebabCooldownMs: number;
   logLevel: LogLevel;
   polling: {
@@ -36,6 +39,9 @@ const EnvSchema = z.object({
   NODE_ENV: z.string().default("development"),
   SUBREDDIT_NAME: z.string().min(1),
   DB_PATH: z.string().default("./data/kebab.db"),
+  DEFAULT_TIMEZONE: z.string().default("Europe/Zagreb"),
+  ITEMS_PER_LEVEL: z.coerce.number().int().positive().default(5),
+  TRACKER_COMMAND: z.string().startsWith("!").default("!kebab"),
   KEBAB_COOLDOWN_HOURS: z.coerce
     .number()
     .positive()
@@ -87,6 +93,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     NODE_ENV: get("NODE_ENV"),
     SUBREDDIT_NAME: get("SUBREDDIT_NAME"),
     DB_PATH: get("DB_PATH"),
+    DEFAULT_TIMEZONE: get("DEFAULT_TIMEZONE"),
+    ITEMS_PER_LEVEL: get("ITEMS_PER_LEVEL"),
+    TRACKER_COMMAND: get("TRACKER_COMMAND"),
     KEBAB_COOLDOWN_HOURS: get("KEBAB_COOLDOWN_HOURS"),
     LOG_LEVEL: get("LOG_LEVEL")?.toLowerCase(),
     POLL_INTERVAL_MS: get("POLL_INTERVAL_MS"),
@@ -110,6 +119,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     nodeEnv: cfg.NODE_ENV,
     subredditName,
     dbPath: cfg.DB_PATH,
+    defaultTimezone: cfg.DEFAULT_TIMEZONE,
+    itemsPerLevel: cfg.ITEMS_PER_LEVEL,
+    trackerCommand: cfg.TRACKER_COMMAND,
     kebabCooldownMs: Math.round(cfg.KEBAB_COOLDOWN_HOURS * 60 * 60 * 1000),
     logLevel: cfg.LOG_LEVEL,
     polling: { pollIntervalMs: cfg.POLL_INTERVAL_MS },

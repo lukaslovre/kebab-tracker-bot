@@ -13,7 +13,7 @@ import { type RedditComment } from "../reddit/types";
  * - On the very first boot (no cursor), we set the cursor to the newest comment
  *   so we avoid processing a backlog.
  * - `onNewComment` should be safe to call more than once for the same comment
- *   (the DB layer enforces idempotency for `!kebab` logs via a UNIQUE constraint).
+ *   (the DB layer enforces idempotency for tracker logs via a UNIQUE constraint).
  */
 export async function runCommentsPoller(options: {
   reddit: RedditClient;

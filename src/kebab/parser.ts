@@ -1,5 +1,5 @@
 /**
- * `!kebab` command parsing.
+ * Tracker command parsing.
  *
  * Goals for the MVP:
  * - Detect the command anywhere in the comment body.
@@ -8,7 +8,7 @@
  */
 
 export type ParsedKebabCommand = {
-  /** Whether the comment contained a `!kebab` command at all. */
+  /** Whether the comment contained a tracker command at all. */
   found: true;
   /** Optional rating 1..10 (e.g. `8/10`). */
   rating: number | null;
@@ -44,21 +44,30 @@ export type ParseKebabCommandResult =
   | ({ found: true; ok: true } & ParsedKebabCommand)
   | KebabCommandParseError;
 
-const COMMAND_RE = /\!kebab\b/i;
 const RATING_RE = /\b(\d{1,2})\s*\/\s*10\b/i;
 // `YYYY-MM-DD` with optional time `HH:mm` separated by whitespace or `T`.
 const DATE_TIME_RE = /\b(\d{4}-\d{2}-\d{2})(?:[ T]+(\d{2}:\d{2}))?\b/;
 
+const REGEX_SPECIALS_RE = /[.*+?^${}()|[\]\\]/g;
+
+export function buildTrackerCommandRegex(trackerCommand: string): RegExp {
+  const escaped = trackerCommand.replace(REGEX_SPECIALS_RE, "\\$&");
+  return new RegExp(`${escaped}\\b`, "i");
+}
+
 /**
- * Parse a single `!kebab` command from the comment body.
+ * Parse a single tracker command from the comment body.
  *
- * Returns `{ found: false }` if the body doesn't contain `!kebab` at all.
+ * Returns `{ found: false }` if the body doesn't contain the configured command.
  */
-export function parseKebabCommand(body: string): ParseKebabCommandResult {
-  const match = COMMAND_RE.exec(body);
+export function parseKebabCommand(
+  body: string,
+  trackerCommandRegex: RegExp,
+): ParseKebabCommandResult {
+  const match = trackerCommandRegex.exec(body);
   if (!match || match.index === undefined) return { found: false };
 
-  // Only parse arguments after the first `!kebab` occurrence.
+  // Only parse arguments after the first tracker command occurrence.
   const rest = body.slice(match.index + match[0].length);
 
   let rating: number | null = null;

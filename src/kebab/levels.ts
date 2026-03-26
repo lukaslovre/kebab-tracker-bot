@@ -2,9 +2,8 @@
  * Lightweight “level” logic.
  *
  * The roadmap intentionally left level thresholds open.
- * For the MVP, we use a simple rule that matches the spec example:
- * - level increases every 5 logged kebabs
- *   (so 14 total => level 3)
+ * For the MVP, we use a simple rule where the level increases every
+ * configured number of logged kebabs.
  */
 
 export type KebabLevel = {
@@ -22,12 +21,18 @@ const TITLES: string[] = [
   "Kebab mit",
 ];
 
-export function getKebabLevel(totalKebabs: number): KebabLevel {
+export function getKebabLevel(
+  totalKebabs: number,
+  itemsPerLevel: number,
+): KebabLevel {
   const safeTotal = Number.isFinite(totalKebabs)
     ? Math.max(0, Math.floor(totalKebabs))
     : 0;
+  const safeItemsPerLevel = Number.isFinite(itemsPerLevel)
+    ? Math.max(1, Math.floor(itemsPerLevel))
+    : 1;
 
-  const level = Math.floor(safeTotal / 5) + 1;
+  const level = Math.floor(safeTotal / safeItemsPerLevel) + 1;
 
   const idx = Math.min(Math.max(level, 1), TITLES.length) - 1;
   const title = TITLES[idx] ?? TITLES[TITLES.length - 1] ?? "Kebab legenda";

@@ -5,18 +5,15 @@ import { DateTime } from "luxon";
  *
  * Key constraints:
  * - Store timestamps in UTC (DB rows are ISO UTC strings).
- * - User input for backdates is interpreted in the Croatian locale timezone.
+ * - User input for backdates is interpreted in the configured local timezone.
  */
-
-export const HR_TIME_ZONE = "Europe/Zagreb";
 
 export type ParseLocalTimeToUtcResult =
   | { ok: true; utc: Date }
   | { ok: false; message: string };
 
 /**
- * Parse a local date/time in a specific IANA time zone (e.g. `Europe/Zagreb`)
- * and convert it to a UTC `Date`.
+ * Parse a local date/time in a specific IANA time zone and convert it to a UTC `Date`.
  *
  * DST handling:
  * - For invalid local times (spring-forward gap), Luxon may normalize; we

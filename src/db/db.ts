@@ -92,7 +92,7 @@ export class KebabDb {
   }
 
   /**
-   * Records a basic `!kebab` log for a comment.
+   * Records a basic tracker log for a comment.
    *
    * Phase 2 behavior: assumes no rating and no backdate -> eatenAt == loggedAt.
    * Phase 3 will reuse the lower-level `recordKebabLog` with parsed args.

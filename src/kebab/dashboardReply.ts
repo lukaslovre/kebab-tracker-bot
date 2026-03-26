@@ -1,18 +1,21 @@
 import { type KebabDashboardData } from "../db/db";
 import { renderKebabDashboardReply } from "../templates/hr";
 import { getKebabLevel } from "./levels";
-import { formatUtcInTimeZone, HR_TIME_ZONE } from "./time";
+import { formatUtcInTimeZone } from "./time";
 
 /**
  * Build the unified “Dashboard” reply from the data we can query from SQLite.
  *
- * Keeping this in a standalone helper lets both:
- * - the comment handler (ingestion)
- * - the reply worker (retrying pending replies)
- * reuse the exact same rendering logic.
+ * Keeping this in a standalone helper lets the reply worker reuse the exact
+ * same rendering logic whenever it needs to format a dashboard reply.
  */
 export function buildKebabDashboardReplyFromLogData(
   dash: KebabDashboardData,
+  options: {
+    timeZone: string;
+    itemsPerLevel: number;
+    trackerCommand: string;
+  },
 ): string {
   const eaten = new Date(dash.eatenAtIso);
   const logged = new Date(dash.loggedAtIso);
@@ -35,14 +38,19 @@ export function buildKebabDashboardReplyFromLogData(
       ? null
       : Math.max(0, eaten.getTime() - prevUser.getTime());
 
-  return renderKebabDashboardReply({
-    rating: dash.rating,
-    isBackdated,
-    eatenAtLocal: formatUtcInTimeZone(eaten, HR_TIME_ZONE),
-    globalDeltaMs,
-    personalDeltaMs,
-    totalKebabs: dash.userTotalKebabs,
-    level: getKebabLevel(dash.userTotalKebabs),
-    avgRating: dash.userAvgRating,
-  });
+  const level = getKebabLevel(dash.userTotalKebabs, options.itemsPerLevel);
+
+  return renderKebabDashboardReply(
+    {
+      rating: dash.rating,
+      isBackdated,
+      eatenAtLocal: formatUtcInTimeZone(eaten, options.timeZone),
+      globalDeltaMs,
+      personalDeltaMs,
+      totalKebabs: dash.userTotalKebabs,
+      level,
+      avgRating: dash.userAvgRating,
+    },
+    { trackerCommand: options.trackerCommand },
+  );
 }

@@ -1,5 +1,5 @@
 import { type ParsedKebabCommand } from "./parser";
-import { HR_TIME_ZONE, parseLocalTimeToUtc } from "./time";
+import { parseLocalTimeToUtc } from "./time";
 
 export type ResolveEatenAtUtcResult =
   | { ok: true; eatenAtUtc: Date; isBackdated: boolean }
@@ -9,22 +9,23 @@ export type ResolveEatenAtUtcResult =
  * Domain adapter: resolve the kebab “eaten at” timestamp from a parsed command.
  *
  * Backdate rules (MVP):
- * - If the user provides only a date, default to 12:00 local (Croatia).
+ * - If the user provides only a date, default to 12:00 local time.
  * - If that would land in the future relative to the comment timestamp,
  *   fall back to 00:00 local for the same date.
  */
 export function resolveEatenAtUtcFromCommand(options: {
   backdate: ParsedKebabCommand["backdate"];
   loggedAtUtc: Date;
+  timeZone: string;
 }): ResolveEatenAtUtcResult {
-  const { backdate, loggedAtUtc } = options;
+  const { backdate, loggedAtUtc, timeZone } = options;
 
   if (!backdate) {
     return { ok: true, eatenAtUtc: loggedAtUtc, isBackdated: false };
   }
 
   const parse = (time: string): ResolveEatenAtUtcResult => {
-    const res = parseLocalTimeToUtc(backdate.date, time, HR_TIME_ZONE);
+    const res = parseLocalTimeToUtc(backdate.date, time, timeZone);
     if (!res.ok) return res;
 
     const eatenAtUtc = res.utc;

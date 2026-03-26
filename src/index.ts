@@ -5,6 +5,7 @@ import { KebabDb } from "./db/db";
 import { RedditAuth } from "./reddit/auth";
 import { RedditClient } from "./reddit/client";
 import { handleKebabComment } from "./kebab/handleKebabComment";
+import { buildTrackerCommandRegex } from "./kebab/parser";
 import { runPendingRepliesWorker } from "./kebab/replyWorker";
 
 /**
@@ -75,6 +76,7 @@ async function main(): Promise<void> {
   );
 
   const kebabLogger = logger.child({ component: "kebab" });
+  const trackerCommandRegex = buildTrackerCommandRegex(config.trackerCommand);
 
   logger.info("Bot starting", {
     subreddit: config.subredditName,
@@ -133,6 +135,9 @@ async function main(): Promise<void> {
               reddit,
               logger: kebabLogger,
               signal,
+              timeZone: config.defaultTimezone,
+              trackerCommand: config.trackerCommand,
+              trackerCommandRegex,
             });
           },
         }),
@@ -146,6 +151,9 @@ async function main(): Promise<void> {
           logger: logger.child({ component: "reply-worker" }),
           signal,
           pollIntervalMs: replyWorkerIntervalMs,
+          timeZone: config.defaultTimezone,
+          itemsPerLevel: config.itemsPerLevel,
+          trackerCommand: config.trackerCommand,
         }),
       ),
     ]);

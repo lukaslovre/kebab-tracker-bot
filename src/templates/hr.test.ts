@@ -1,20 +1,31 @@
 import { describe, expect, it } from "bun:test";
 import { getKebabLevel } from "../kebab/levels";
 import { formatDurationHr } from "../kebab/time";
-import { renderKebabDashboardReply } from "./hr";
+import {
+  renderKebabCooldownReply,
+  renderKebabDashboardReply,
+  renderKebabFutureDateReply,
+  renderKebabParseErrorReply,
+} from "./hr";
+
+const trackerCommand = "!kebab";
+const customTrackerCommand = "!burger";
 
 describe("renderKebabDashboardReply", () => {
   it("renders exact output for a first-time user", () => {
-    const out = renderKebabDashboardReply({
-      rating: null,
-      isBackdated: false,
-      eatenAtLocal: "2026-03-15 12:00",
-      globalDeltaMs: null,
-      personalDeltaMs: null,
-      totalKebabs: 1,
-      level: getKebabLevel(1),
-      avgRating: null,
-    });
+    const out = renderKebabDashboardReply(
+      {
+        rating: null,
+        isBackdated: false,
+        eatenAtLocal: "2026-03-15 12:00",
+        globalDeltaMs: null,
+        personalDeltaMs: null,
+        totalKebabs: 1,
+        level: getKebabLevel(1, 5),
+        avgRating: null,
+      },
+      { trackerCommand },
+    );
 
     expect(out).toBe(
       [
@@ -30,29 +41,52 @@ describe("renderKebabDashboardReply", () => {
   });
 
   it("renders exact output for a backdated entry (includes retro tags)", () => {
-    const out = renderKebabDashboardReply({
-      rating: 8,
-      isBackdated: true,
-      eatenAtLocal: "2026-03-15 12:00",
-      globalDeltaMs: 2 * 86_400_000 + 4 * 3_600_000,
-      personalDeltaMs: 14 * 86_400_000,
-      totalKebabs: 14,
-      level: getKebabLevel(14),
-      avgRating: 7.2,
-    });
+    const out = renderKebabDashboardReply(
+      {
+        rating: 8,
+        isBackdated: true,
+        eatenAtLocal: "2026-03-15 12:00",
+        globalDeltaMs: 2 * 86_400_000 + 4 * 3_600_000,
+        personalDeltaMs: 14 * 86_400_000,
+        totalKebabs: 14,
+        level: getKebabLevel(14, 5),
+        avgRating: 7.2,
+      },
+      { trackerCommand: customTrackerCommand },
+    );
 
     expect(out).toBe(
       [
         "🌯 **Kebab zabilježen!** (Ocjena: 8/10)",
-        "📅 *Retroaktivno:* 2026-03-15 12:00 (CET/CEST)",
+        "📅 *Retroaktivno:* 2026-03-15 12:00",
         "",
         "🚨 **Sat subreddita (retro):** Na taj datum sub je bio bez kebaba `2 dana, 4 sata`.",
         "⏱️ **Tvoj osobni niz (retro):** Tada je prošlo `14 dana` od tvog zadnjeg loga.",
         "📈 **Tvoja statistika:** Razina **3** — Döner znalac (**14** ukupno). Prosječna ocjena: `7.2/10`.",
         "",
-        "^(_Za retroaktivni unos: `!kebab YYYY-MM-DD` ili `!kebab YYYY-MM-DD HH:mm`_)",
+        "^(_Za retroaktivni unos: `!burger YYYY-MM-DD` ili `!burger YYYY-MM-DD HH:mm`_)",
       ].join("\n"),
     );
+  });
+
+  it("renders command-aware helper replies", () => {
+    expect(
+      renderKebabCooldownReply({
+        nextAllowedAtLocal: "2026-03-15 12:00",
+        trackerCommand: customTrackerCommand,
+      }),
+    ).toContain(customTrackerCommand);
+
+    expect(
+      renderKebabFutureDateReply({ trackerCommand: customTrackerCommand }),
+    ).toContain(customTrackerCommand);
+
+    expect(
+      renderKebabParseErrorReply({
+        message: "Datum mora biti oblika YYYY-MM-DD.",
+        trackerCommand: customTrackerCommand,
+      }),
+    ).toContain(customTrackerCommand);
   });
 });
 
