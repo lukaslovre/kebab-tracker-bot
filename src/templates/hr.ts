@@ -18,6 +18,7 @@ function renderCommandExamples(trackerCommand: string): string[] {
     `- \`${trackerCommand}\``,
     `- \`${trackerCommand} 8/10\``,
     `- \`${trackerCommand} 2026-03-15\``,
+    `- \`${trackerCommand} 8/10 2026-03-15 18:30\``,
   ];
 }
 
@@ -117,7 +118,6 @@ export function renderKebabFutureDateReply(options: {
     "",
     "Primjeri:",
     ...renderCommandExamples(options.trackerCommand),
-    `- \`${options.trackerCommand} 8/10 2026-03-15 18:30\``,
   ].join("\n");
 }
 
@@ -130,6 +130,5 @@ export function renderKebabParseErrorReply(options: {
     "",
     "Primjeri:",
     ...renderCommandExamples(options.trackerCommand),
-    `- \`${options.trackerCommand} 8/10 2026-03-15 18:30\``,
   ].join("\n");
 }
