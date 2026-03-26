@@ -161,6 +161,12 @@ export class KebabDb {
         .run(username, loggedAtIso);
 
       // Cooldown (only for non-backdated logs).
+      //
+      // Concurrency note:
+      // This check and the subsequent INSERT happen in the same SQLite
+      // transaction. SQLite allows only one writer at a time, which serializes
+      // concurrent `recordKebabLog` calls and prevents a race where two
+      // near-simultaneous logs bypass the cooldown.
       if (!input.isBackdated) {
         const last = this.db
           .query(

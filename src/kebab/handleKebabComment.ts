@@ -4,11 +4,8 @@ import { RedditRateLimitError } from "../reddit/errors";
 import { type RedditComment } from "../reddit/types";
 import { type KebabDb } from "../db/db";
 import { parseKebabCommand } from "./parser";
-import {
-  formatUtcInTimeZone,
-  HR_TIME_ZONE,
-  zonedLocalDateTimeToUtc,
-} from "./time";
+import { formatUtcInTimeZone, HR_TIME_ZONE } from "./time";
+import { resolveEatenAtUtcFromCommand } from "./timeAdapter";
 import {
   renderKebabCooldownReply,
   renderKebabFutureDateReply,
@@ -45,47 +42,6 @@ async function replyBestEffort(options: {
       commentFullname: options.commentFullname,
     });
   }
-}
-
-function parseBackdateToUtc(options: {
-  date: string;
-  time?: string;
-  loggedAtUtc: Date;
-}): { ok: true; eatenAtUtc: Date } | { ok: false; message: string } {
-  const [y, m, d] = options.date.split("-");
-  const year = Number.parseInt(y ?? "", 10);
-  const month = Number.parseInt(m ?? "", 10);
-  const day = Number.parseInt(d ?? "", 10);
-
-  let hour = 12;
-  let minute = 0;
-  let usedDefaultTime = true;
-
-  if (options.time) {
-    const [hh, mm] = options.time.split(":");
-    hour = Number.parseInt(hh ?? "", 10);
-    minute = Number.parseInt(mm ?? "", 10);
-    usedDefaultTime = false;
-  }
-
-  const first = zonedLocalDateTimeToUtc(
-    { year, month, day, hour, minute },
-    HR_TIME_ZONE,
-  );
-  if (!first.ok) return { ok: false, message: first.message };
-
-  // If the user only provided a date and it's “today”, defaulting to noon can
-  // accidentally land in the future (early morning). To keep UX smooth, we
-  // fall back to 00:00 local in that case.
-  if (usedDefaultTime && first.utc.getTime() > options.loggedAtUtc.getTime()) {
-    const fallback = zonedLocalDateTimeToUtc(
-      { year, month, day, hour: 0, minute: 0 },
-      HR_TIME_ZONE,
-    );
-    if (fallback.ok) return { ok: true, eatenAtUtc: fallback.utc };
-  }
-
-  return { ok: true, eatenAtUtc: first.utc };
 }
 
 /**
@@ -127,32 +83,23 @@ export async function handleKebabComment(options: {
   const cmd = parsed;
 
   const loggedAtUtc = new Date(comment.createdUtcSeconds * 1000);
-  let eatenAtUtc = loggedAtUtc;
+  const resolved = resolveEatenAtUtcFromCommand({
+    backdate: cmd.backdate,
+    loggedAtUtc,
+  });
 
-  if (cmd.backdate) {
-    const converted = parseBackdateToUtc({
-      date: cmd.backdate.date,
-      time: cmd.backdate.time,
-      loggedAtUtc,
+  if (!resolved.ok) {
+    await replyBestEffort({
+      reddit,
+      commentFullname: comment.fullname,
+      markdown: renderKebabParseErrorReply(resolved.message),
+      logger,
+      signal,
     });
-
-    if (!converted.ok) {
-      await replyBestEffort({
-        reddit,
-        commentFullname: comment.fullname,
-        markdown: renderKebabParseErrorReply(converted.message),
-        logger,
-        signal,
-      });
-      return;
-    }
-
-    eatenAtUtc = converted.eatenAtUtc;
+    return;
   }
 
-  const isBackdated =
-    cmd.backdate !== null &&
-    eatenAtUtc.getTime() < loggedAtUtc.getTime() - 60_000;
+  const { eatenAtUtc, isBackdated } = resolved;
 
   const record = db.recordKebabLog({
     username: comment.author,
