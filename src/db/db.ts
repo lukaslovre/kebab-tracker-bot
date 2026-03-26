@@ -28,6 +28,12 @@ export type KebabDashboardData = {
   prevUserEatenAtIso: string | null;
 };
 
+export type UnrepliedKebabLog = {
+  logId: number;
+  commentId: string;
+  loggedAtIso: string;
+};
+
 const BOT_STATE_COMMENTS_CURSOR = "comments.cursor.fullname";
 
 function toIsoUtc(d: Date): string {
@@ -222,6 +228,42 @@ export class KebabDb {
 
     if (!row) return null;
     return { logId: Number(row.logId), repliedAtIso: row.repliedAtIso };
+  }
+
+  /**
+   * List logs that were recorded but have not been successfully replied to yet.
+   *
+   * This powers the Phase 4 reply worker, which can retry after restarts.
+   */
+  listUnrepliedKebabLogs(options: { limit: number }): UnrepliedKebabLog[] {
+    const rows = this.db
+      .query(
+        "SELECT log_id as logId, comment_id as commentId, logged_at as loggedAtIso " +
+          "FROM kebab_logs WHERE replied_at IS NULL " +
+          "ORDER BY logged_at ASC LIMIT ?",
+      )
+      .all(options.limit) as Array<{
+      logId: number;
+      commentId: string;
+      loggedAtIso: string;
+    }> | null;
+
+    if (!rows || rows.length === 0) return [];
+
+    return rows.map((r) => ({
+      logId: Number(r.logId),
+      commentId: r.commentId,
+      loggedAtIso: r.loggedAtIso,
+    }));
+  }
+
+  countUnrepliedKebabLogs(): number {
+    const row = this.db
+      .query(
+        "SELECT COUNT(*) as count FROM kebab_logs WHERE replied_at IS NULL",
+      )
+      .get() as { count: number } | null;
+    return row ? Number(row.count) : 0;
   }
 
   markKebabLogRepliedAt(logId: number, repliedAtUtc: Date = new Date()): void {

@@ -2,7 +2,6 @@ import { type Logger } from "../logger";
 import { type RedditClient } from "../reddit/client";
 import { RedditRateLimitError } from "../reddit/errors";
 import { type RedditComment } from "../reddit/types";
-import { sleep } from "../utils/sleep";
 import { type KebabDb } from "../db/db";
 import { parseKebabCommand } from "./parser";
 import {
@@ -10,10 +9,8 @@ import {
   HR_TIME_ZONE,
   zonedLocalDateTimeToUtc,
 } from "./time";
-import { getKebabLevel } from "./levels";
 import {
   renderKebabCooldownReply,
-  renderKebabDashboardReply,
   renderKebabFutureDateReply,
   renderKebabParseErrorReply,
 } from "../templates/hr";
@@ -22,15 +19,12 @@ function sameUsername(a: string, b: string): boolean {
   return a.trim().toLowerCase() === b.trim().toLowerCase();
 }
 
-type ReplyMode = "must_succeed" | "best_effort";
-
-async function replyWithPolicy(options: {
+async function replyBestEffort(options: {
   reddit: RedditClient;
   commentFullname: string;
   markdown: string;
   logger: Logger;
   signal: AbortSignal;
-  mode: ReplyMode;
 }): Promise<void> {
   try {
     await options.reddit.replyToComment({
@@ -44,19 +38,9 @@ async function replyWithPolicy(options: {
         retryAfterMs: error.retryAfterMs,
         url: error.url,
       });
-
-      // If this reply is important (accepted log), we prefer to wait and retry
-      // by rethrowing so the poller does not advance its cursor.
-      if (options.mode === "must_succeed") {
-        await sleep(error.retryAfterMs, options.signal);
-        throw error;
-      }
     }
 
-    if (options.mode === "must_succeed") throw error;
-
-    // For “best effort” replies (cooldown/parse errors), avoid getting stuck
-    // retrying a non-critical response forever.
+    // Best-effort replies should never block the main poller loop.
     options.logger.exception("Failed to reply (best effort)", error, {
       commentFullname: options.commentFullname,
     });
@@ -105,11 +89,14 @@ function parseBackdateToUtc(options: {
 }
 
 /**
- * Phase 3: Parse `!kebab`, record it, compute streak/stats, and reply.
+ * Parse `!kebab` commands found in new comments and record them.
+ *
+ * This handler is intentionally "fast": it records accepted logs immediately.
+ * The actual dashboard reply is sent by a separate pending-replies worker,
+ * which can retry safely without stalling the main poller.
  *
  * Important safety behavior:
  * - Ignore the bot's own comments (our reply includes `!kebab` in examples).
- * - Reply attempts for accepted logs are retried via the poller loop until they succeed.
  */
 export async function handleKebabComment(options: {
   comment: RedditComment;
@@ -127,13 +114,12 @@ export async function handleKebabComment(options: {
   if (!parsed.found) return;
 
   if ("ok" in parsed && parsed.ok === false) {
-    await replyWithPolicy({
+    await replyBestEffort({
       reddit,
       commentFullname: comment.fullname,
       markdown: renderKebabParseErrorReply(parsed.message),
       logger,
       signal,
-      mode: "best_effort",
     });
     return;
   }
@@ -151,13 +137,12 @@ export async function handleKebabComment(options: {
     });
 
     if (!converted.ok) {
-      await replyWithPolicy({
+      await replyBestEffort({
         reddit,
         commentFullname: comment.fullname,
         markdown: renderKebabParseErrorReply(converted.message),
         logger,
         signal,
-        mode: "best_effort",
       });
       return;
     }
@@ -180,7 +165,7 @@ export async function handleKebabComment(options: {
 
   if (record.status === "cooldown") {
     const nextAllowed = new Date(record.nextAllowedAtIso);
-    await replyWithPolicy({
+    await replyBestEffort({
       reddit,
       commentFullname: comment.fullname,
       markdown: renderKebabCooldownReply({
@@ -188,83 +173,41 @@ export async function handleKebabComment(options: {
       }),
       logger,
       signal,
-      mode: "best_effort",
     });
     return;
   }
 
   if (record.status === "rejected_future") {
-    await replyWithPolicy({
+    await replyBestEffort({
       reddit,
       commentFullname: comment.fullname,
       markdown: renderKebabFutureDateReply(),
       logger,
       signal,
-      mode: "best_effort",
     });
     return;
   }
 
-  // If the log row already exists, only reply if we never marked `replied_at`.
-  let logId: number | null = null;
-
   if (record.status === "inserted") {
-    logId = record.logId;
-  } else if (record.status === "duplicate") {
-    const existing = db.getKebabLogByCommentId(comment.id);
-    if (!existing) return;
-    if (existing.repliedAtIso) return;
-    logId = existing.logId;
-  }
-
-  if (logId === null) return;
-
-  const dash = db.getDashboardDataForLogId(logId);
-  if (!dash) {
-    logger.error("Missing dashboard data for log", { logId });
+    logger.info("Kebab log recorded (reply pending)", {
+      username: comment.author,
+      commentId: comment.id,
+      logId: record.logId,
+      isBackdated,
+      rating: cmd.rating,
+    });
     return;
   }
 
-  const eaten = new Date(dash.eatenAtIso);
-  const logged = new Date(dash.loggedAtIso);
-  const dashIsBackdated = eaten.getTime() < logged.getTime() - 60_000;
+  if (record.status === "duplicate") {
+    const existing = db.getKebabLogByCommentId(comment.id);
+    if (!existing) return;
+    if (existing.repliedAtIso) return;
 
-  const prevGlobal = dash.prevGlobalEatenAtIso
-    ? new Date(dash.prevGlobalEatenAtIso)
-    : null;
-  const prevUser = dash.prevUserEatenAtIso
-    ? new Date(dash.prevUserEatenAtIso)
-    : null;
-
-  const globalDeltaMs =
-    prevGlobal === null
-      ? null
-      : Math.max(0, eaten.getTime() - prevGlobal.getTime());
-  const personalDeltaMs =
-    prevUser === null
-      ? null
-      : Math.max(0, eaten.getTime() - prevUser.getTime());
-
-  const reply = renderKebabDashboardReply({
-    rating: dash.rating,
-    isBackdated: dashIsBackdated,
-    eatenAtLocal: formatUtcInTimeZone(eaten, HR_TIME_ZONE),
-    globalDeltaMs,
-    personalDeltaMs,
-    totalKebabs: dash.userTotalKebabs,
-    level: getKebabLevel(dash.userTotalKebabs),
-    avgRating: dash.userAvgRating,
-  });
-
-  // Accepted log => reply must succeed (otherwise we retry via the poller).
-  await replyWithPolicy({
-    reddit,
-    commentFullname: comment.fullname,
-    markdown: reply,
-    logger,
-    signal,
-    mode: "must_succeed",
-  });
-
-  db.markKebabLogRepliedAt(logId);
+    logger.info("Existing kebab log still pending reply", {
+      commentId: comment.id,
+      logId: existing.logId,
+    });
+    return;
+  }
 }

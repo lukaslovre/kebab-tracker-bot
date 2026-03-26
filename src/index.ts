@@ -5,12 +5,16 @@ import { KebabDb } from "./db/db";
 import { RedditAuth } from "./reddit/auth";
 import { RedditClient } from "./reddit/client";
 import { handleKebabComment } from "./kebab/handleKebabComment";
+import { runPendingRepliesWorker } from "./kebab/replyWorker";
 
 /**
  * Process entrypoint.
  *
- * Phase 1 behavior: authenticate with Reddit, poll new comments, and detect `!kebab`.
- * Later phases will add parsing, SQLite persistence, and replying.
+ * Boot the bot:
+ * - load & validate config
+ * - open the SQLite DB
+ * - start the comments poller (ingestion)
+ * - start the pending-replies worker (retry-safe replying)
  */
 async function main(): Promise<void> {
   const config = loadConfig();
@@ -78,30 +82,82 @@ async function main(): Promise<void> {
     dbPath: config.dbPath,
   });
 
-  await runCommentsPoller({
-    reddit,
-    subredditName: config.subredditName,
-    pollIntervalMs: config.polling.pollIntervalMs,
-    logger: logger.child({ component: "comments-poller" }),
-    signal,
-    cursorStore: {
-      get: () => db.getCommentsCursorFullname(),
-      set: (fullname) => db.setCommentsCursorFullname(fullname),
-    },
-    onNewComment: async (comment) => {
-      await handleKebabComment({
-        comment,
-        botUsername: config.reddit.username,
-        db,
-        reddit,
-        logger: kebabLogger,
-        signal,
-      });
-    },
-  });
+  // Minimal metrics: a heartbeat log so we can see the bot is alive in Docker.
+  const heartbeatIntervalMs = 5 * 60_000;
+  const heartbeatTimer = setInterval(() => {
+    if (signal.aborted) return;
+    logger.info("Bot heartbeat", {
+      uptimeSeconds: Math.round(process.uptime()),
+      pendingReplies: db.countUnrepliedKebabLogs(),
+      commentsCursor: db.getCommentsCursorFullname() ?? null,
+    });
+  }, heartbeatIntervalMs);
 
-  db.close();
-  logger.info("Bot stopped");
+  // In Node/Bun, `unref()` prevents the interval from keeping the event loop
+  // alive if all other work is done (useful during shutdown).
+  heartbeatTimer.unref?.();
+
+  const replyWorkerIntervalMs = 5_000;
+
+  try {
+    let fatal: unknown | undefined;
+
+    const guard = async (name: string, p: Promise<void>): Promise<void> => {
+      try {
+        await p;
+      } catch (error) {
+        if (fatal === undefined) fatal = error;
+        logger.exception(`${name} crashed`, error);
+        shutdown(`${name}Crashed`);
+      }
+    };
+
+    await Promise.all([
+      guard(
+        "comments-poller",
+        runCommentsPoller({
+          reddit,
+          subredditName: config.subredditName,
+          pollIntervalMs: config.polling.pollIntervalMs,
+          logger: logger.child({ component: "comments-poller" }),
+          signal,
+          cursorStore: {
+            get: () => db.getCommentsCursorFullname(),
+            set: (fullname) => db.setCommentsCursorFullname(fullname),
+          },
+          onNewComment: async (comment) => {
+            await handleKebabComment({
+              comment,
+              botUsername: config.reddit.username,
+              db,
+              reddit,
+              logger: kebabLogger,
+              signal,
+            });
+          },
+        }),
+      ),
+
+      guard(
+        "reply-worker",
+        runPendingRepliesWorker({
+          db,
+          reddit,
+          logger: logger.child({ component: "reply-worker" }),
+          signal,
+          pollIntervalMs: replyWorkerIntervalMs,
+        }),
+      ),
+    ]);
+
+    if (fatal !== undefined) {
+      throw fatal;
+    }
+  } finally {
+    clearInterval(heartbeatTimer);
+    db.close();
+    logger.info("Bot stopped");
+  }
 }
 
 try {

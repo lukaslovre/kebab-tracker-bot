@@ -1,16 +1,19 @@
 import { type Logger } from "../logger";
 import { FixedSizeSet } from "../utils/fixedSizeSet";
 import { sleep } from "../utils/sleep";
-import { RedditRateLimitError } from "../reddit/errors";
+import { RedditApiError, RedditRateLimitError } from "../reddit/errors";
 import { type RedditClient } from "../reddit/client";
 import { type RedditComment } from "../reddit/types";
 
 /**
  * Poll `/r/<subreddit>/comments` and call `onNewComment` for newly observed comments.
  *
- * Notes (Phase 1):
- * - Cursor is in-memory, so restarts can miss a window; Phase 2 will add DB-backed idempotency.
- * - On boot we set the cursor to the current newest comment so we avoid processing a backlog.
+ * Notes:
+ * - If `cursorStore` is provided, the cursor can be persisted (restart-safe).
+ * - On the very first boot (no cursor), we set the cursor to the newest comment
+ *   so we avoid processing a backlog.
+ * - `onNewComment` should be safe to call more than once for the same comment
+ *   (the DB layer enforces idempotency for `!kebab` logs via a UNIQUE constraint).
  */
 export async function runCommentsPoller(options: {
   reddit: RedditClient;
@@ -40,6 +43,21 @@ export async function runCommentsPoller(options: {
     logger.info("Loaded persisted cursor", { lastSeenFullname });
   }
 
+  // Simple exponential backoff for repeated failures.
+  let consecutiveErrors = 0;
+
+  const computeBackoffMs = (attempt: number): number => {
+    const maxMs = 5 * 60_000;
+    const exp = Math.min(8, Math.max(0, attempt - 1));
+    const raw = pollIntervalMs * 2 ** exp;
+    const capped = Math.min(maxMs, raw);
+
+    // Small jitter so multiple instances don't synchronize.
+    const jitter = 0.2;
+    const factor = 1 - jitter + Math.random() * (2 * jitter);
+    return Math.max(1_000, Math.round(capped * factor));
+  };
+
   while (!signal.aborted) {
     try {
       const comments = await reddit.fetchSubredditComments({
@@ -47,6 +65,9 @@ export async function runCommentsPoller(options: {
         limit: 50,
         signal,
       });
+
+      consecutiveErrors = 0;
+
       const newest = comments[0]?.fullname;
       if (!newest) {
         await sleep(pollIntervalMs, signal);
@@ -76,6 +97,13 @@ export async function runCommentsPoller(options: {
       if (newer.length > 0) {
         // Process oldest -> newest to keep output deterministic.
         const inOrder = newer.slice().reverse();
+        logger.info("New comments observed", {
+          count: inOrder.length,
+          lastSeenFullname,
+          newestFullname: inOrder[inOrder.length - 1]?.fullname,
+        });
+
+        let processed = 0;
         for (const comment of inOrder) {
           if (seen.has(comment.fullname)) continue;
           try {
@@ -94,6 +122,14 @@ export async function runCommentsPoller(options: {
           seen.add(comment.fullname);
           lastSeenFullname = comment.fullname;
           await cursorStore?.set(lastSeenFullname);
+          processed += 1;
+        }
+
+        if (processed > 0) {
+          logger.info("Processed new comments", {
+            processed,
+            lastSeenFullname,
+          });
         }
       }
 
@@ -106,12 +142,34 @@ export async function runCommentsPoller(options: {
           retryAfterMs: error.retryAfterMs,
           url: error.url,
         });
-        await sleep(error.retryAfterMs, signal);
+        consecutiveErrors += 1;
+        const delay = Math.max(
+          error.retryAfterMs,
+          computeBackoffMs(consecutiveErrors),
+        );
+        await sleep(delay, signal);
         continue;
       }
 
-      logger.exception("Poll loop error", error);
-      await sleep(Math.min(60_000, pollIntervalMs * 2), signal);
+      consecutiveErrors += 1;
+
+      const backoffMs = computeBackoffMs(consecutiveErrors);
+
+      if (error instanceof RedditApiError) {
+        logger.exception("Poll loop error", error, {
+          status: error.status,
+          url: error.url,
+          consecutiveErrors,
+          backoffMs,
+        });
+      } else {
+        logger.exception("Poll loop error", error, {
+          consecutiveErrors,
+          backoffMs,
+        });
+      }
+
+      await sleep(backoffMs, signal);
     }
   }
 }
