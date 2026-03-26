@@ -3,6 +3,42 @@ import { fetchWithTimeout } from "../utils/fetchWithTimeout";
 import { RedditApiError, RedditRateLimitError } from "./errors";
 import { RedditAuth } from "./auth";
 import { type RedditComment } from "./types";
+import * as z from "zod";
+
+const SubredditCommentsResponseSchema = z.object({
+  data: z.object({
+    children: z.array(
+      z.object({
+        data: z.unknown(),
+      }),
+    ),
+  }),
+});
+
+const RedditCommentDataSchema = z.object({
+  id: z.string(),
+  name: z.string().optional(),
+  author: z.string().optional(),
+  body: z.string().optional(),
+  created_utc: z.number(),
+  permalink: z.string().optional(),
+  subreddit: z.string().optional(),
+});
+
+type RedditCommentData = z.infer<typeof RedditCommentDataSchema>;
+
+function toRedditComment(data: RedditCommentData): RedditComment {
+  const fullname = data.name ?? `t1_${data.id}`;
+  return {
+    id: data.id,
+    fullname,
+    author: data.author ?? "[unknown]",
+    body: data.body ?? "",
+    createdUtcSeconds: data.created_utc,
+    permalink: data.permalink,
+    subreddit: data.subreddit,
+  };
+}
 
 export type RedditClientConfig = {
   auth: RedditAuth;
@@ -55,44 +91,15 @@ export class RedditClient {
       );
     }
 
-    const children = (payload as any)?.data?.children;
-    if (!Array.isArray(children)) {
-      return [];
-    }
+    const parsedListing = SubredditCommentsResponseSchema.safeParse(payload);
+    if (!parsedListing.success) return [];
 
     const comments: RedditComment[] = [];
-    for (const child of children) {
-      const data = child?.data;
-      if (!data || typeof data !== "object") continue;
-
-      const id = typeof data.id === "string" ? data.id : undefined;
-      const fullname =
-        typeof data.name === "string" ? data.name : id ? `t1_${id}` : undefined;
-      const author =
-        typeof data.author === "string" ? data.author : "[unknown]";
-      const body = typeof data.body === "string" ? data.body : "";
-      const createdUtcSeconds =
-        typeof data.created_utc === "number" &&
-        Number.isFinite(data.created_utc)
-          ? data.created_utc
-          : undefined;
-
-      if (!id || !fullname || createdUtcSeconds === undefined) continue;
-
-      const comment: RedditComment = {
-        id,
-        fullname,
-        author,
-        body,
-        createdUtcSeconds,
-        permalink:
-          typeof data.permalink === "string" ? data.permalink : undefined,
-        subreddit:
-          typeof data.subreddit === "string" ? data.subreddit : undefined,
-      };
-      comments.push(comment);
+    for (const child of parsedListing.data.data.children) {
+      const parsed = RedditCommentDataSchema.safeParse(child.data);
+      if (!parsed.success) continue;
+      comments.push(toRedditComment(parsed.data));
     }
-
     return comments;
   }
 

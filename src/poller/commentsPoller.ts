@@ -10,7 +10,7 @@ import { type RedditComment } from "../reddit/types";
  *
  * Notes (Phase 1):
  * - Cursor is in-memory, so restarts can miss a window; Phase 2 will add DB-backed idempotency.
- * - We seed the cursor to "now" on boot to avoid processing historical backlog.
+ * - On boot we set the cursor to the current newest comment so we avoid processing a backlog.
  */
 export async function runCommentsPoller(options: {
   reddit: RedditClient;
@@ -32,22 +32,6 @@ export async function runCommentsPoller(options: {
   const seen = new FixedSizeSet<string>(2_000);
   let lastSeenFullname: string | undefined;
 
-  // Seed cursor to “now” so we don't process a backlog on first boot.
-  {
-    const initial = await reddit.fetchSubredditComments({
-      subredditName,
-      limit: 25,
-      signal,
-    });
-    lastSeenFullname = initial[0]?.fullname;
-    if (lastSeenFullname) {
-      seen.add(lastSeenFullname);
-      logger.info("Initial cursor set", { lastSeenFullname });
-    } else {
-      logger.warn("No comments returned while initializing cursor");
-    }
-  }
-
   while (!signal.aborted) {
     try {
       const comments = await reddit.fetchSubredditComments({
@@ -64,6 +48,7 @@ export async function runCommentsPoller(options: {
       if (!lastSeenFullname) {
         lastSeenFullname = newest;
         seen.add(newest);
+        logger.info("Initial cursor set", { lastSeenFullname });
         await sleep(pollIntervalMs, signal);
         continue;
       }
