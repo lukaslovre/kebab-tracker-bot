@@ -1,4 +1,5 @@
 import { type LogLevel } from "./logger";
+import * as z from "zod";
 
 /**
  * App configuration loader.
@@ -30,72 +31,26 @@ export type AppConfig = {
   };
 };
 
-/**
- * Load and validate configuration.
- *
- * @throws If required env vars are missing/blank or if any value is invalid.
- */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
-  const missing: string[] = [];
-  // Collect missing keys so we can throw a single actionable error.
-  const requireEnv = (key: string): string => {
-    const value = env[key];
-    if (value === undefined || value.trim() === "") {
-      missing.push(key);
-      return "";
-    }
-    return value;
-  };
-
-  const nodeEnv = env.NODE_ENV?.trim() || "development";
-
-  // Accept SUBREDDIT_NAME as "KebabLog" or "r/KebabLog" and normalize to "KebabLog".
-  const subredditNameRaw = requireEnv("SUBREDDIT_NAME");
-  const subredditName = normalizeSubredditName(subredditNameRaw);
-
-  const logLevelRaw = (env.LOG_LEVEL ?? "info").trim().toLowerCase();
-  const logLevel = parseLogLevel(logLevelRaw);
-
-  const dbPath = (env.DB_PATH?.trim() || "./data/kebab.db").trim();
-
-  const pollIntervalMs = parsePositiveInt(env.POLL_INTERVAL_MS, 15_000);
-  if (pollIntervalMs < 5_000) {
-    throw new Error(
-      `POLL_INTERVAL_MS is too low (${pollIntervalMs}). Use at least 5000ms to avoid API spam.`,
-    );
-  }
-
-  const requestTimeoutMs = parsePositiveInt(env.REQUEST_TIMEOUT_MS, 10_000);
-
-  const clientId = requireEnv("REDDIT_CLIENT_ID");
-  const clientSecret = requireEnv("REDDIT_CLIENT_SECRET");
-  const username = requireEnv("REDDIT_USERNAME");
-  const password = requireEnv("REDDIT_PASSWORD");
-  const userAgent = requireEnv("USER_AGENT");
-
-  if (missing.length > 0) {
-    throw new Error(
-      `Missing required environment variables: ${missing.sort().join(", ")}. ` +
-        `See .env.example for a template.`,
-    );
-  }
-
-  return {
-    nodeEnv,
-    subredditName,
-    dbPath,
-    logLevel,
-    polling: { pollIntervalMs },
-    http: { requestTimeoutMs },
-    reddit: {
-      clientId,
-      clientSecret,
-      username,
-      password,
-      userAgent,
-    },
-  };
-}
+const EnvSchema = z.object({
+  NODE_ENV: z.string().default("development"),
+  SUBREDDIT_NAME: z.string().min(1),
+  DB_PATH: z.string().default("./data/kebab.db"),
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(15_000)
+    .refine((n) => n >= 5_000, {
+      message: "POLL_INTERVAL_MS is too low (minimum 5000)",
+    }),
+  REQUEST_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
+  REDDIT_CLIENT_ID: z.string().min(1),
+  REDDIT_CLIENT_SECRET: z.string().min(1),
+  REDDIT_USERNAME: z.string().min(1),
+  REDDIT_PASSWORD: z.string().min(1),
+  USER_AGENT: z.string().min(1),
+});
 
 /** Normalizes common subreddit inputs to a plain name (no leading `r/`). */
 function normalizeSubredditName(raw: string): string {
@@ -107,27 +62,54 @@ function normalizeSubredditName(raw: string): string {
     .replace(/\/$/, "");
 }
 
-/** Parse an env var as a positive integer, falling back to the provided default. */
-function parsePositiveInt(value: string | undefined, fallback: number): number {
-  if (value === undefined || value.trim() === "") return fallback;
-  const parsed = Number.parseInt(value, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
-    throw new Error(`Invalid integer: ${value}`);
-  }
-  return parsed;
-}
+/**
+ * Load and validate configuration using Zod.
+ *
+ * Converts empty strings to `undefined` so that Zod defaults apply.
+ */
+export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
+  const get = (key: string): string | undefined => {
+    const v = env[key];
+    if (v === undefined) return undefined;
+    const t = v.trim();
+    return t === "" ? undefined : t;
+  };
 
-/** Restrict LOG_LEVEL to known values to avoid silent typos. */
-function parseLogLevel(value: string): LogLevel {
-  if (
-    value === "debug" ||
-    value === "info" ||
-    value === "warn" ||
-    value === "error"
-  ) {
-    return value;
+  const raw = {
+    NODE_ENV: get("NODE_ENV"),
+    SUBREDDIT_NAME: get("SUBREDDIT_NAME"),
+    DB_PATH: get("DB_PATH"),
+    LOG_LEVEL: get("LOG_LEVEL")?.toLowerCase(),
+    POLL_INTERVAL_MS: get("POLL_INTERVAL_MS"),
+    REQUEST_TIMEOUT_MS: get("REQUEST_TIMEOUT_MS"),
+    REDDIT_CLIENT_ID: get("REDDIT_CLIENT_ID"),
+    REDDIT_CLIENT_SECRET: get("REDDIT_CLIENT_SECRET"),
+    REDDIT_USERNAME: get("REDDIT_USERNAME"),
+    REDDIT_PASSWORD: get("REDDIT_PASSWORD"),
+    USER_AGENT: get("USER_AGENT"),
+  };
+
+  const parsed = EnvSchema.safeParse(raw);
+  if (!parsed.success) {
+    throw new Error(`Invalid environment: ${z.prettifyError(parsed.error)}`);
   }
-  throw new Error(
-    `Invalid LOG_LEVEL: ${value} (expected debug|info|warn|error)`,
-  );
+
+  const cfg = parsed.data;
+  const subredditName = normalizeSubredditName(cfg.SUBREDDIT_NAME);
+
+  return {
+    nodeEnv: cfg.NODE_ENV,
+    subredditName,
+    dbPath: cfg.DB_PATH,
+    logLevel: cfg.LOG_LEVEL,
+    polling: { pollIntervalMs: cfg.POLL_INTERVAL_MS },
+    http: { requestTimeoutMs: cfg.REQUEST_TIMEOUT_MS },
+    reddit: {
+      clientId: cfg.REDDIT_CLIENT_ID,
+      clientSecret: cfg.REDDIT_CLIENT_SECRET,
+      username: cfg.REDDIT_USERNAME,
+      password: cfg.REDDIT_PASSWORD,
+      userAgent: cfg.USER_AGENT,
+    },
+  };
 }
