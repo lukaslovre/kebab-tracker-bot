@@ -8,21 +8,6 @@ Inputs:
 - `docs/02-architecture-and-data.md`
 - `docs/03-reddit-setup-and-ops.md`
 
-## Current Implementation Snapshot
-
-The current codebase already covers most of Phase 1:
-
-- Entrypoint and process lifecycle live in `src/index.ts`.
-- Configuration parsing and validation live in `src/config.ts`.
-- Reddit OAuth and API access are split into `src/reddit/auth.ts` and
-  `src/reddit/client.ts`.
-- Polling and in-memory dedupe live in `src/poller/commentsPoller.ts`.
-- Logging is handled by the small structured logger in `src/logger.ts`.
-
-That means the roadmap should now focus less on "where should the app live?"
-and more on the remaining hard problems: persistence, parser logic, reply
-generation, and restart safety.
-
 ## Confirmed MVP Decisions
 
 - Store user identity by `username` rather than `reddit_user_id` to avoid extra API calls.
