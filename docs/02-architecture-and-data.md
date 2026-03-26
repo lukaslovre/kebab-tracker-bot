@@ -41,4 +41,8 @@ _(Stores every individual kebab eaten. Essential for calculating averages and pe
 - `logged_at` (DATETIME) - The time the comment was made.
 - `rating` (INTEGER NULLABLE) - E.g., 8 (out of 10).
 - `comment_id` (TEXT UNIQUE) - The Reddit comment ID. (Crucial: Enforces a unique constraint so the bot never processes the same comment twice if it restarts).
-- `replied_at` (DATETIME NULLABLE) - When the bot successfully replied, if it needs to retry or resume later.
+- `reply_status` (TEXT) - One of: `pending`, `success`, `failed_permanently`. Used by the reply worker to resume safely after restarts and to avoid infinite retries for deleted/locked comments.
+
+### MVP trade-off: best-effort "error" replies
+
+Some user-facing replies (parse errors, cooldown messages, future-date rejections) are sent immediately as best-effort replies and are not persisted in SQLite. If Reddit rate-limits the bot at that moment, those error replies may be dropped.

@@ -10,9 +10,11 @@ export type RecordKebabLogResult =
   | { status: "cooldown"; nextAllowedAtIso: string }
   | { status: "rejected_future" };
 
+export type ReplyStatus = "pending" | "success" | "failed_permanently";
+
 export type KebabLogByCommentId = {
   logId: number;
-  repliedAtIso: string | null;
+  replyStatus: ReplyStatus;
 };
 
 export type KebabDashboardData = {
@@ -181,8 +183,8 @@ export class KebabDb {
 
       const insertRes = this.db
         .query(
-          "INSERT OR IGNORE INTO kebab_logs(username, timestamp, logged_at, rating, comment_id, replied_at) " +
-            "VALUES(?, ?, ?, ?, ?, NULL)",
+          "INSERT OR IGNORE INTO kebab_logs(username, timestamp, logged_at, rating, comment_id, reply_status) " +
+            "VALUES(?, ?, ?, ?, ?, 'pending')",
         )
         .run(
           username,
@@ -222,12 +224,12 @@ export class KebabDb {
   getKebabLogByCommentId(commentId: string): KebabLogByCommentId | null {
     const row = this.db
       .query(
-        "SELECT log_id as logId, replied_at as repliedAtIso FROM kebab_logs WHERE comment_id = ? LIMIT 1",
+        "SELECT log_id as logId, reply_status as replyStatus FROM kebab_logs WHERE comment_id = ? LIMIT 1",
       )
-      .get(commentId) as { logId: number; repliedAtIso: string | null } | null;
+      .get(commentId) as { logId: number; replyStatus: ReplyStatus } | null;
 
     if (!row) return null;
-    return { logId: Number(row.logId), repliedAtIso: row.repliedAtIso };
+    return { logId: Number(row.logId), replyStatus: row.replyStatus };
   }
 
   /**
@@ -239,7 +241,7 @@ export class KebabDb {
     const rows = this.db
       .query(
         "SELECT log_id as logId, comment_id as commentId, logged_at as loggedAtIso " +
-          "FROM kebab_logs WHERE replied_at IS NULL " +
+          "FROM kebab_logs WHERE reply_status = 'pending' " +
           "ORDER BY logged_at ASC LIMIT ?",
       )
       .all(options.limit) as Array<{
@@ -260,17 +262,24 @@ export class KebabDb {
   countUnrepliedKebabLogs(): number {
     const row = this.db
       .query(
-        "SELECT COUNT(*) as count FROM kebab_logs WHERE replied_at IS NULL",
+        "SELECT COUNT(*) as count FROM kebab_logs WHERE reply_status = 'pending'",
       )
       .get() as { count: number } | null;
     return row ? Number(row.count) : 0;
   }
 
-  markKebabLogRepliedAt(logId: number, repliedAtUtc: Date = new Date()): void {
-    const repliedAtIso = toIsoUtc(repliedAtUtc);
+  markKebabLogReplySuccess(logId: number): void {
     this.db
-      .query("UPDATE kebab_logs SET replied_at = ? WHERE log_id = ?")
-      .run(repliedAtIso, logId);
+      .query("UPDATE kebab_logs SET reply_status = 'success' WHERE log_id = ?")
+      .run(logId);
+  }
+
+  markKebabLogReplyFailedPermanently(logId: number): void {
+    this.db
+      .query(
+        "UPDATE kebab_logs SET reply_status = 'failed_permanently' WHERE log_id = ?",
+      )
+      .run(logId);
   }
 
   /**

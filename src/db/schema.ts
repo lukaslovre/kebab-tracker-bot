@@ -33,7 +33,7 @@ export function initSchema(db: Database): void {
       logged_at TEXT NOT NULL,
       rating INTEGER NULL,
       comment_id TEXT NOT NULL UNIQUE,
-      replied_at TEXT NULL,
+      reply_status TEXT NOT NULL DEFAULT 'pending',
       FOREIGN KEY (username) REFERENCES users(username)
     );
   `);

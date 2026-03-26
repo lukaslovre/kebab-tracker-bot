@@ -202,7 +202,7 @@ export async function handleKebabComment(options: {
   if (record.status === "duplicate") {
     const existing = db.getKebabLogByCommentId(comment.id);
     if (!existing) return;
-    if (existing.repliedAtIso) return;
+    if (existing.replyStatus !== "pending") return;
 
     logger.info("Existing kebab log still pending reply", {
       commentId: comment.id,

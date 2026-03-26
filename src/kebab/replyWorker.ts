@@ -1,6 +1,6 @@
 import { type Logger } from "../logger";
 import { type RedditClient } from "../reddit/client";
-import { RedditRateLimitError } from "../reddit/errors";
+import { RedditApiError, RedditRateLimitError } from "../reddit/errors";
 import { sleep } from "../utils/sleep";
 import { type KebabDb } from "../db/db";
 import { buildKebabDashboardReplyFromLogData } from "./dashboardReply";
@@ -28,7 +28,7 @@ function computeExponentialBackoffMs(options: {
 
 /**
  * Background worker that retries replies for logs that were recorded but not yet
- * marked as replied (`kebab_logs.replied_at IS NULL`).
+ * marked as completed (`kebab_logs.reply_status = 'pending'`).
  *
  * Why this exists:
  * - If replying fails (rate-limit, transient network issues, Reddit hiccups), we
@@ -82,13 +82,18 @@ export async function runPendingRepliesWorker(options: {
         if (state && Date.now() < state.nextAttemptAtMs) continue;
 
         const previousAttempts = state?.attempts ?? 0;
-        const attempt = previousAttempts + 1;
-
-        if (attempt > maxAttempts) {
-          // We intentionally stop retrying for this process run. The log remains
-          // unreplied in SQLite so it is visible for manual intervention.
+        if (previousAttempts >= maxAttempts) {
+          db.markKebabLogReplyFailedPermanently(item.logId);
+          retry.delete(item.logId);
+          logger.warn("Max reply attempts already reached; marking as failed", {
+            logId: item.logId,
+            commentId: item.commentId,
+            attempts: previousAttempts,
+          });
           continue;
         }
+
+        const attempt = previousAttempts + 1;
 
         try {
           const dash = db.getDashboardDataForLogId(item.logId);
@@ -104,7 +109,7 @@ export async function runPendingRepliesWorker(options: {
             signal,
           });
 
-          db.markKebabLogRepliedAt(item.logId);
+          db.markKebabLogReplySuccess(item.logId);
           retry.delete(item.logId);
 
           logger.info("Replied to pending log", {
@@ -114,14 +119,34 @@ export async function runPendingRepliesWorker(options: {
           });
         } catch (error) {
           if (signal.aborted) break;
-          if (attempt >= maxAttempts) {
-            retry.set(item.logId, {
-              attempts: attempt,
-              nextAttemptAtMs: Number.POSITIVE_INFINITY,
-            });
+
+          if (
+            error instanceof RedditApiError &&
+            error.status >= 400 &&
+            error.status < 500
+          ) {
+            db.markKebabLogReplyFailedPermanently(item.logId);
+            retry.delete(item.logId);
 
             logger.exception(
-              "Max reply attempts reached; leaving log unreplied",
+              "Permanent reply failure; marking as failed",
+              error,
+              {
+                logId: item.logId,
+                commentId: item.commentId,
+                attempt,
+                status: error.status,
+              },
+            );
+            continue;
+          }
+
+          if (attempt >= maxAttempts) {
+            db.markKebabLogReplyFailedPermanently(item.logId);
+            retry.delete(item.logId);
+
+            logger.exception(
+              "Max reply attempts reached; marking as failed",
               error,
               {
                 logId: item.logId,

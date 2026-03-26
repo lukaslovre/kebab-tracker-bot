@@ -32,7 +32,7 @@ generation, and restart safety.
 - Use a **sliding-window cooldown** rather than a strict one-log-per-X-hours rule.
 - Accept backdated logs as `YYYY-MM-DD HH:mm` with the time part optional; if omitted, use a sensible default time in the Croatian locale and store the final timestamp in UTC.
 - Use a single-instance SQLite deployment for the MVP.
-- Track reply status with `replied_at` on the log row rather than a separate outbox table.
+- Track reply status with `reply_status` on the log row rather than a separate outbox table.
 
 ## Phase 1 — Project + Runtime Foundations
 

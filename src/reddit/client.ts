@@ -63,6 +63,11 @@ export class RedditClient {
   public async fetchSubredditComments(options: {
     subredditName: string;
     limit?: number;
+    /**
+     * Listing cursor (fullname). When provided, Reddit returns comments that
+     * appear before this item in the listing (i.e. newer comments).
+     */
+    before?: string;
     signal?: AbortSignal;
   }): Promise<RedditComment[]> {
     // Listing endpoint used by the poller.
@@ -73,6 +78,9 @@ export class RedditClient {
     );
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("raw_json", "1");
+    if (options.before) {
+      url.searchParams.set("before", options.before);
+    }
 
     const res = await this.request(url.toString(), {
       method: "GET",

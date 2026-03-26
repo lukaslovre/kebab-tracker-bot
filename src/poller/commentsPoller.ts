@@ -60,11 +60,25 @@ export async function runCommentsPoller(options: {
 
   while (!signal.aborted) {
     try {
-      const comments = await reddit.fetchSubredditComments({
-        subredditName,
-        limit: 50,
-        signal,
-      });
+      const comments = await reddit.fetchSubredditComments(
+        lastSeenFullname
+          ? {
+              subredditName,
+              // Reddit listing max is 100. Using a cursor avoids the classic
+              // "restart gap" where the last-seen item falls out of a small
+              // fixed window.
+              limit: 100,
+              before: lastSeenFullname,
+              signal,
+            }
+          : {
+              subredditName,
+              // On first boot (no cursor) we only need "latest" to seed the
+              // cursor; we intentionally do not process a backlog.
+              limit: 50,
+              signal,
+            },
+      );
 
       consecutiveErrors = 0;
 
@@ -83,20 +97,18 @@ export async function runCommentsPoller(options: {
         continue;
       }
 
-      const index = comments.findIndex((c) => c.fullname === lastSeenFullname);
-      const sliceEnd = index >= 0 ? index : comments.length;
-      const newer = comments.slice(0, sliceEnd);
+      if (comments.length > 0) {
+        if (comments.length >= 100) {
+          logger.warn("Fetched max new-comment batch; may still be behind", {
+            lastSeenFullname,
+            fetched: comments.length,
+            limit: 100,
+          });
+        }
 
-      if (index < 0 && newer.length > 0) {
-        logger.warn("Cursor not found in listing; possible restart gap", {
-          lastSeenFullname,
-          fetched: comments.length,
-        });
-      }
-
-      if (newer.length > 0) {
-        // Process oldest -> newest to keep output deterministic.
-        const inOrder = newer.slice().reverse();
+        // With a `before` cursor, Reddit returns comments that are newer than
+        // the cursor. Process oldest -> newest to keep output deterministic.
+        const inOrder = comments.slice().reverse();
         logger.info("New comments observed", {
           count: inOrder.length,
           lastSeenFullname,
