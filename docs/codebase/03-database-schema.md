@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A quick reference for the SQLite schema (tables + indexes) so you don’t have to read SQL strings.
+A quick reference for the SQLite schema (tables + indexes).
 
 ## Conventions
 
