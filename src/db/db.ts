@@ -10,6 +10,24 @@ export type RecordKebabLogResult =
   | { status: "cooldown"; nextAllowedAtIso: string }
   | { status: "rejected_future" };
 
+export type KebabLogByCommentId = {
+  logId: number;
+  repliedAtIso: string | null;
+};
+
+export type KebabDashboardData = {
+  logId: number;
+  username: string;
+  commentId: string;
+  eatenAtIso: string;
+  loggedAtIso: string;
+  rating: number | null;
+  userTotalKebabs: number;
+  userAvgRating: number | null;
+  prevGlobalEatenAtIso: string | null;
+  prevUserEatenAtIso: string | null;
+};
+
 const BOT_STATE_COMMENTS_CURSOR = "comments.cursor.fullname";
 
 function toIsoUtc(d: Date): string {
@@ -193,5 +211,91 @@ export class KebabDb {
       });
       throw error;
     }
+  }
+
+  getKebabLogByCommentId(commentId: string): KebabLogByCommentId | null {
+    const row = this.db
+      .query(
+        "SELECT log_id as logId, replied_at as repliedAtIso FROM kebab_logs WHERE comment_id = ? LIMIT 1",
+      )
+      .get(commentId) as { logId: number; repliedAtIso: string | null } | null;
+
+    if (!row) return null;
+    return { logId: Number(row.logId), repliedAtIso: row.repliedAtIso };
+  }
+
+  markKebabLogRepliedAt(logId: number, repliedAtUtc: Date = new Date()): void {
+    const repliedAtIso = toIsoUtc(repliedAtUtc);
+    this.db
+      .query("UPDATE kebab_logs SET replied_at = ? WHERE log_id = ?")
+      .run(repliedAtIso, logId);
+  }
+
+  /**
+   * Load everything needed to render a dashboard reply for a specific log.
+   *
+   * Notes:
+   * - For streak deltas we look at the previous log by `timestamp` (the eaten time),
+   *   not `logged_at` (comment time). This keeps backdated history consistent.
+   */
+  getDashboardDataForLogId(logId: number): KebabDashboardData | null {
+    const row = this.db
+      .query(
+        "SELECT l.log_id as logId, l.username as username, l.comment_id as commentId, l.timestamp as eatenAtIso, l.logged_at as loggedAtIso, l.rating as rating, u.total_kebabs as userTotalKebabs " +
+          "FROM kebab_logs l JOIN users u ON u.username = l.username WHERE l.log_id = ? LIMIT 1",
+      )
+      .get(logId) as {
+      logId: number;
+      username: string;
+      commentId: string;
+      eatenAtIso: string;
+      loggedAtIso: string;
+      rating: number | null;
+      userTotalKebabs: number;
+    } | null;
+
+    if (!row) return null;
+
+    const avgRow = this.db
+      .query(
+        "SELECT AVG(rating) as avgRating FROM kebab_logs WHERE username = ? AND rating IS NOT NULL",
+      )
+      .get(row.username) as { avgRating: number | null } | null;
+
+    const prevGlobal = this.db
+      .query(
+        "SELECT timestamp as eatenAtIso FROM kebab_logs " +
+          "WHERE (timestamp < ? OR (timestamp = ? AND log_id < ?)) " +
+          "ORDER BY timestamp DESC, log_id DESC LIMIT 1",
+      )
+      .get(row.eatenAtIso, row.eatenAtIso, row.logId) as {
+      eatenAtIso: string;
+    } | null;
+
+    const prevUser = this.db
+      .query(
+        "SELECT timestamp as eatenAtIso FROM kebab_logs " +
+          "WHERE username = ? AND (timestamp < ? OR (timestamp = ? AND log_id < ?)) " +
+          "ORDER BY timestamp DESC, log_id DESC LIMIT 1",
+      )
+      .get(row.username, row.eatenAtIso, row.eatenAtIso, row.logId) as {
+      eatenAtIso: string;
+    } | null;
+
+    return {
+      logId: Number(row.logId),
+      username: row.username,
+      commentId: row.commentId,
+      eatenAtIso: row.eatenAtIso,
+      loggedAtIso: row.loggedAtIso,
+      rating: row.rating === null ? null : Number(row.rating),
+      userTotalKebabs: Number(row.userTotalKebabs),
+      userAvgRating:
+        avgRow?.avgRating === null || avgRow?.avgRating === undefined
+          ? null
+          : Number(avgRow.avgRating),
+      prevGlobalEatenAtIso: prevGlobal?.eatenAtIso ?? null,
+      prevUserEatenAtIso: prevUser?.eatenAtIso ?? null,
+    };
   }
 }

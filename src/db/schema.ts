@@ -44,4 +44,12 @@ export function initSchema(db: Database): void {
   db.run(
     "CREATE INDEX IF NOT EXISTS idx_kebab_logs_logged_at ON kebab_logs(logged_at);",
   );
+
+  // Phase 3 queries use `timestamp` (eaten time) for streak computations.
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_kebab_logs_username_timestamp ON kebab_logs(username, timestamp);",
+  );
+  db.run(
+    "CREATE INDEX IF NOT EXISTS idx_kebab_logs_timestamp ON kebab_logs(timestamp);",
+  );
 }

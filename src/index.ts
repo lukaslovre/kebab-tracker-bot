@@ -4,6 +4,7 @@ import { runCommentsPoller } from "./poller/commentsPoller";
 import { KebabDb } from "./db/db";
 import { RedditAuth } from "./reddit/auth";
 import { RedditClient } from "./reddit/client";
+import { handleKebabComment } from "./kebab/handleKebabComment";
 
 /**
  * Process entrypoint.
@@ -69,6 +70,8 @@ async function main(): Promise<void> {
     logger.child({ component: "reddit" }),
   );
 
+  const kebabLogger = logger.child({ component: "kebab" });
+
   logger.info("Bot starting", {
     subreddit: config.subredditName,
     pollIntervalMs: config.polling.pollIntervalMs,
@@ -86,20 +89,14 @@ async function main(): Promise<void> {
       set: (fullname) => db.setCommentsCursorFullname(fullname),
     },
     onNewComment: async (comment) => {
-      if (/\!kebab\b/i.test(comment.body)) {
-        const res = db.recordBasicKebabLogFromComment({
-          username: comment.author,
-          commentId: comment.id,
-          createdUtcSeconds: comment.createdUtcSeconds,
-        });
-
-        logger.info("Detected !kebab command", {
-          commentFullname: comment.fullname,
-          author: comment.author,
-          createdUtcSeconds: comment.createdUtcSeconds,
-          dbResult: res.status,
-        });
-      }
+      await handleKebabComment({
+        comment,
+        botUsername: config.reddit.username,
+        db,
+        reddit,
+        logger: kebabLogger,
+        signal,
+      });
     },
   });
 
