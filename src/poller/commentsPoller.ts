@@ -20,14 +20,25 @@ export async function runCommentsPoller(options: {
   signal: AbortSignal;
   onNewComment: (comment: RedditComment) => Promise<void> | void;
 }): Promise<void> {
-  const { reddit, subredditName, pollIntervalMs, logger, signal, onNewComment } = options;
+  const {
+    reddit,
+    subredditName,
+    pollIntervalMs,
+    logger,
+    signal,
+    onNewComment,
+  } = options;
 
   const seen = new FixedSizeSet<string>(2_000);
   let lastSeenFullname: string | undefined;
 
   // Seed cursor to “now” so we don't process a backlog on first boot.
   {
-    const initial = await reddit.fetchSubredditComments({ subredditName, limit: 25, signal });
+    const initial = await reddit.fetchSubredditComments({
+      subredditName,
+      limit: 25,
+      signal,
+    });
     lastSeenFullname = initial[0]?.fullname;
     if (lastSeenFullname) {
       seen.add(lastSeenFullname);
@@ -39,7 +50,11 @@ export async function runCommentsPoller(options: {
 
   while (!signal.aborted) {
     try {
-      const comments = await reddit.fetchSubredditComments({ subredditName, limit: 50, signal });
+      const comments = await reddit.fetchSubredditComments({
+        subredditName,
+        limit: 50,
+        signal,
+      });
       const newest = comments[0]?.fullname;
       if (!newest) {
         await sleep(pollIntervalMs, signal);
@@ -73,7 +88,9 @@ export async function runCommentsPoller(options: {
           try {
             await onNewComment(comment);
           } catch (error) {
-            logger.exception("onNewComment failed", error, { commentFullname: comment.fullname });
+            logger.exception("onNewComment failed", error, {
+              commentFullname: comment.fullname,
+            });
           }
         }
       }

@@ -6,6 +6,9 @@
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun --watch src/index.ts",
+    "format": "bunx prettier@3.8.1 --write .",
+    "format:check": "bunx prettier@3.8.1 --check .",
+    "test": "bun test --pass-with-no-tests",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

@@ -46,7 +46,12 @@ export function createLogger(options: LoggerOptions): Logger {
   const make = (scope: LogFields): Logger => {
     const mergedBase = { ...base, ...scope };
 
-    const write = (level: LogLevel, msg: string, fields?: LogFields, err?: unknown) => {
+    const write = (
+      level: LogLevel,
+      msg: string,
+      fields?: LogFields,
+      err?: unknown,
+    ) => {
       if (LEVEL_ORDER[level] < min) return;
 
       const entry: Record<string, unknown> = {

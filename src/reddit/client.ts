@@ -31,19 +31,28 @@ export class RedditClient {
   }): Promise<RedditComment[]> {
     // Listing endpoint used by the poller.
     const limit = options.limit ?? 50;
-    const url = new URL(`/r/${options.subredditName}/comments.json`, this.baseUrl);
+    const url = new URL(
+      `/r/${options.subredditName}/comments.json`,
+      this.baseUrl,
+    );
     url.searchParams.set("limit", String(limit));
     url.searchParams.set("raw_json", "1");
 
-    const res = await this.request(url.toString(), { method: "GET", signal: options.signal });
+    const res = await this.request(url.toString(), {
+      method: "GET",
+      signal: options.signal,
+    });
     const payload = await this.readJsonSafe(res);
 
     if (!res.ok) {
-      throw new RedditApiError(`Failed to fetch comments (HTTP ${res.status})`, {
-        status: res.status,
-        url: url.toString(),
-        responseBody: payload,
-      });
+      throw new RedditApiError(
+        `Failed to fetch comments (HTTP ${res.status})`,
+        {
+          status: res.status,
+          url: url.toString(),
+          responseBody: payload,
+        },
+      );
     }
 
     const children = (payload as any)?.data?.children;
@@ -57,11 +66,14 @@ export class RedditClient {
       if (!data || typeof data !== "object") continue;
 
       const id = typeof data.id === "string" ? data.id : undefined;
-      const fullname = typeof data.name === "string" ? data.name : id ? `t1_${id}` : undefined;
-      const author = typeof data.author === "string" ? data.author : "[unknown]";
+      const fullname =
+        typeof data.name === "string" ? data.name : id ? `t1_${id}` : undefined;
+      const author =
+        typeof data.author === "string" ? data.author : "[unknown]";
       const body = typeof data.body === "string" ? data.body : "";
       const createdUtcSeconds =
-        typeof data.created_utc === "number" && Number.isFinite(data.created_utc)
+        typeof data.created_utc === "number" &&
+        Number.isFinite(data.created_utc)
           ? data.created_utc
           : undefined;
 
@@ -73,8 +85,10 @@ export class RedditClient {
         author,
         body,
         createdUtcSeconds,
-        permalink: typeof data.permalink === "string" ? data.permalink : undefined,
-        subreddit: typeof data.subreddit === "string" ? data.subreddit : undefined,
+        permalink:
+          typeof data.permalink === "string" ? data.permalink : undefined,
+        subreddit:
+          typeof data.subreddit === "string" ? data.subreddit : undefined,
       };
       comments.push(comment);
     }
@@ -130,7 +144,9 @@ export class RedditClient {
 
   private async request(url: string, init: RequestInit): Promise<Response> {
     // Always call via oauth.reddit.com with an Authorization bearer token.
-    const token = await this.config.auth.getAccessToken(init.signal ?? undefined);
+    const token = await this.config.auth.getAccessToken(
+      init.signal ?? undefined,
+    );
 
     const headers = new Headers(init.headers);
     headers.set("Authorization", `bearer ${token}`);
@@ -146,12 +162,18 @@ export class RedditClient {
     );
 
     if (res.status === 429) {
-      const retryAfterSeconds = Number.parseInt(res.headers.get("retry-after") ?? "1", 10);
+      const retryAfterSeconds = Number.parseInt(
+        res.headers.get("retry-after") ?? "1",
+        10,
+      );
       const retryAfterMs =
         Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
           ? retryAfterSeconds * 1000
           : 1_000;
-      throw new RedditRateLimitError("Rate limited by Reddit", { retryAfterMs, url });
+      throw new RedditRateLimitError("Rate limited by Reddit", {
+        retryAfterMs,
+        url,
+      });
     }
 
     return res;

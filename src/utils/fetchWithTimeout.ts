@@ -10,7 +10,10 @@ export async function fetchWithTimeout(
   timeoutMs: number,
 ): Promise<Response> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(new Error("Request timed out")), timeoutMs);
+  const timeout = setTimeout(
+    () => controller.abort(new Error("Request timed out")),
+    timeoutMs,
+  );
 
   let onAbort: (() => void) | undefined;
 

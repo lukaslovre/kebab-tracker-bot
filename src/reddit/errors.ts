@@ -4,7 +4,10 @@ export class RedditApiError extends Error {
   public readonly url: string;
   public readonly responseBody?: unknown;
 
-  constructor(message: string, options: { status: number; url: string; responseBody?: unknown }) {
+  constructor(
+    message: string,
+    options: { status: number; url: string; responseBody?: unknown },
+  ) {
     super(message);
     this.name = "RedditApiError";
     this.status = options.status;

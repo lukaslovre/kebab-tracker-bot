@@ -55,9 +55,9 @@ export class RedditAuth {
   private async refresh(signal?: AbortSignal): Promise<string> {
     const url = "https://www.reddit.com/api/v1/access_token";
 
-    const auth = Buffer.from(`${this.config.clientId}:${this.config.clientSecret}`).toString(
-      "base64",
-    );
+    const auth = Buffer.from(
+      `${this.config.clientId}:${this.config.clientSecret}`,
+    ).toString("base64");
 
     const body = new URLSearchParams({
       grant_type: "password",
@@ -81,7 +81,10 @@ export class RedditAuth {
     );
 
     if (res.status === 429) {
-      const retryAfterSeconds = Number.parseInt(res.headers.get("retry-after") ?? "1", 10);
+      const retryAfterSeconds = Number.parseInt(
+        res.headers.get("retry-after") ?? "1",
+        10,
+      );
       const retryAfterMs =
         Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
           ? retryAfterSeconds * 1000
@@ -116,7 +119,8 @@ export class RedditAuth {
     }
 
     const expiresInSeconds =
-      typeof payload.expires_in === "number" && Number.isFinite(payload.expires_in)
+      typeof payload.expires_in === "number" &&
+      Number.isFinite(payload.expires_in)
         ? payload.expires_in
         : 3600;
 

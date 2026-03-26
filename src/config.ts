@@ -119,8 +119,15 @@ function parsePositiveInt(value: string | undefined, fallback: number): number {
 
 /** Restrict LOG_LEVEL to known values to avoid silent typos. */
 function parseLogLevel(value: string): LogLevel {
-  if (value === "debug" || value === "info" || value === "warn" || value === "error") {
+  if (
+    value === "debug" ||
+    value === "info" ||
+    value === "warn" ||
+    value === "error"
+  ) {
     return value;
   }
-  throw new Error(`Invalid LOG_LEVEL: ${value} (expected debug|info|warn|error)`);
+  throw new Error(
+    `Invalid LOG_LEVEL: ${value} (expected debug|info|warn|error)`,
+  );
 }

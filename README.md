@@ -31,4 +31,25 @@ Type-check (no emit):
 bun run typecheck
 ```
 
+Format:
+
+```bash
+bun run format
+```
+
+Check formatting without changing files:
+
+```bash
+bun run format:check
+```
+
+Run tests:
+
+```bash
+bun run test
+```
+
+The test script uses Bun's built-in runner and keeps working even before you
+add any test files.
+
 This project was created using `bun init` in bun v1.3.1. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
