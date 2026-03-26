@@ -41,7 +41,7 @@ Net effect:
 
 ## Reply worker retries (durable replies)
 
-Accepted `!kebab` logs are inserted with `kebab_logs.reply_status = 'pending'`. A separate worker (`runPendingRepliesWorker`) is responsible for posting the dashboard reply and retrying failures.
+Accepted tracker-command logs are inserted with `kebab_logs.reply_status = 'pending'`. A separate worker (`runPendingRepliesWorker`) is responsible for posting the dashboard reply and retrying failures.
 
 ### Exponential backoff
 

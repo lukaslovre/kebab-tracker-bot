@@ -6,15 +6,17 @@ The Kebab Tracker is a Reddit-based community bot confined to a specific subredd
 
 ## Localization & Target Locale
 
-The project targets the Croatia / Balkan region. User-facing text (bot replies, messages, and any website copy) should default to Croatian or a regionally appropriate language. Backend storage should continue to use UTC for all timestamps; user-facing time displays may default to CET/CEST for Croatian users.
+The project targets the Croatia / Balkan region. User-facing text (bot replies, messages, and any website copy) should default to Croatian or a regionally appropriate language. Backend storage should continue to use UTC for all timestamps; user-facing time displays default to the configured local timezone (`DEFAULT_TIMEZONE`, default `Europe/Zagreb`).
 
 ## 2. Core Usefulness (The MVP)
 
-The core loop revolves around a single command: `!kebab`. When a user comments this command in the subreddit, the bot parses the request, updates the database, and replies with a unified "Dashboard" summarizing the event.
+The core loop revolves around a single tracker command (default: `!kebab`, configurable via `TRACKER_COMMAND`). When a user comments this command in the subreddit, the bot parses the request, updates the database, and replies with a unified "Dashboard" summarizing the event.
 
 ### 2.1 Command Syntax
 
 The command supports optional arguments for backdating and rating.
+
+> The examples below use the default tracker command (`!kebab`).
 
 - **Basic:** `!kebab` (Logs a kebab for right now, no rating).
 - **With Rating:** `!kebab 8/10` (Logs a kebab for right now, with a rating out of 10).
@@ -37,10 +39,12 @@ When a valid command is detected, the bot replies to the comment with a structur
 
 - **Spam Prevention:** Users cannot log more than one kebab per X hours (e.g., 4 hours) unless they are specifically using the backdate argument for past dates.
 - **Future Dates:** If a user tries to backdate to a date in the future (e.g., `!kebab 2099-01-01`), the bot should reject it with a humorous error message.
-- **Edited Comments:** For the MVP, the bot only listens to _new_ comments. If a user edits a comment to add `!kebab` later, it is ignored.
-- **Timezones:** All database times should be stored in UTC. The bot's replies calculate the relative time delta (e.g., "2 days, 4 hours"), which avoids timezone confusion for the end user.
+- **Edited Comments:** For the MVP, the bot only listens to _new_ comments. If a user edits a comment to add the tracker command later, it is ignored.
+- **Timezones:** All database times should be stored in UTC. The bot's replies calculate the relative time delta (e.g., "2 days, 4 hours"), which avoids timezone confusion for the end user. The displayed local timezone is configurable via `DEFAULT_TIMEZONE`.
 
-- **Display localization:** For Croatian/Balkan users, display times and human-facing text should default to CET/CEST and Croatian where practical; the DB retains UTC for correctness.
+- **Display localization:** For Croatian/Balkan users, display times and human-facing text should default to Croatian where practical; the DB retains UTC for correctness.
+
+- **Leveling:** The level cadence is configurable via `ITEMS_PER_LEVEL` (default: 5 logs per level).
 
 ## 4. Extensibility (Future Scope)
 

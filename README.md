@@ -1,6 +1,6 @@
 # kebab-tracker-bot
 
-Reddit bot that tracks `!kebab` logs for a single subreddit and replies with a unified “dashboard” (global streak + personal streak + stats).
+Reddit bot that tracks a configurable tracker command (default: `!kebab`) for a single subreddit and replies with a unified “dashboard” (global streak + personal streak + stats).
 
 To install dependencies:
 
@@ -85,6 +85,9 @@ Configure these in Coolify “Variables” (or in a local `.env`):
 
 Optional env vars (see `.env.example` for defaults):
 
+- `DEFAULT_TIMEZONE`
+- `ITEMS_PER_LEVEL`
+- `TRACKER_COMMAND`
 - `POLL_INTERVAL_MS`
 - `REQUEST_TIMEOUT_MS`
 - `KEBAB_COOLDOWN_HOURS`
@@ -99,7 +102,7 @@ In logs you should see:
 - `Bot starting` once at boot
 - `Bot heartbeat` every ~5 minutes
 - `New comments observed` when new comments arrive
-- `Kebab log recorded (reply pending)` when a `!kebab` was accepted
+- `Kebab log recorded (reply pending)` when a tracker command was accepted
 - `Replied to pending log` when the bot posts the dashboard reply
 
 ### If it stops replying

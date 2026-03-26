@@ -13,6 +13,9 @@ Inputs:
 - Store user identity by `username` rather than `reddit_user_id` to avoid extra API calls.
 - Keep the first release focused on **comments only**; submissions/posts are future scope.
 - Default user-facing text to Croatian.
+- Default the tracker command to `!kebab`, but keep it configurable via `TRACKER_COMMAND`.
+- Default the local display timezone to `Europe/Zagreb`, but keep it configurable via `DEFAULT_TIMEZONE`.
+- Make the level cadence configurable via `ITEMS_PER_LEVEL` (default 5).
 - Keep templates in `src/templates/` with a locale-focused structure, such as `src/templates/hr.ts` for the MVP.
 - Use a **sliding-window cooldown** rather than a strict one-log-per-X-hours rule.
 - Accept backdated logs as `YYYY-MM-DD HH:mm` with the time part optional; if omitted, use a sensible default time in the Croatian locale and store the final timestamp in UTC.
@@ -22,7 +25,7 @@ Inputs:
 ## Phase 1 — Project + Runtime Foundations
 
 - Project layout is settled: the entrypoint lives in `src/index.ts`.
-- Define the configuration contract (required environment variables, DB path, subreddit name, polling interval).
+- Define the configuration contract (required environment variables, DB path, subreddit name, polling interval, `DEFAULT_TIMEZONE`, `ITEMS_PER_LEVEL`, and `TRACKER_COMMAND`).
 - Implement Reddit OAuth for a script app and a tiny API client that can:
   - fetch new comments for the subreddit
   - post a reply to a specific comment
@@ -42,7 +45,7 @@ Inputs:
 
 ## Phase 3 — Domain Logic: Parse + Compute + Reply
 
-- Implement the `!kebab` parser with flexible argument ordering:
+- Implement the tracker command parser with flexible argument ordering:
   - optional rating (e.g., `8/10`)
   - optional date/time (e.g., `YYYY-MM-DD HH:mm`)
 - Implement the transaction that records a log and updates cached user totals.
@@ -68,12 +71,10 @@ Inputs:
 
 ### Reply retry policy
 
-- The exact retry strategy for failed replies is still open.
-- The current preferred direction is a simple exponential backoff with a small maximum attempt count, but the final choice should be made before implementing the reply worker.
-- If the retry strategy becomes more complex later, it can be revisited without changing the rest of the data model.
+- Failed replies use exponential backoff with jitter and a small maximum attempt count.
+- Rate-limit responses reuse Reddit’s `Retry-After` hint when available.
+- The retry state is intentionally in-memory per process run; the durable state is `reply_status` on the log row.
 
 ## Open Decisions (Defer Until Needed)
 
 - Exact source of truth for “new comments” (OAuth listing vs public JSON; and how to choose `before/after` semantics).
-- The exact definition of “level” thresholds (can be introduced once the base stats pipeline works).
-- Final retry policy for failed Reddit replies beyond the simple backoff direction noted above.

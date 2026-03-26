@@ -37,7 +37,7 @@ One row per Reddit username.
 
 ### `kebab_logs`
 
-One row per accepted `!kebab` command (idempotent per Reddit comment).
+One row per accepted tracker-command log (idempotent per Reddit comment).
 
 | Column         | Type      | Constraints                                 | Meaning                                                                               |
 | -------------- | --------- | ------------------------------------------- | ------------------------------------------------------------------------------------- |

@@ -33,19 +33,19 @@ A high-level map of the codebase, with clear module boundaries.
 
 **Does _not_ know about:**
 
-- `!kebab` commands or any domain parsing
+- tracker command syntax or any domain parsing
 - SQLite schema details
 
 ---
 
 ### `src/kebab/` — kebab domain boundary
 
-**Responsibility:** All kebab-specific behavior: parsing `!kebab` commands, interpreting backdates in the Croatian timezone, deciding what to record, and generating reply markdown.
+**Responsibility:** All kebab-specific behavior: parsing the configured tracker command, interpreting backdates in the configured local timezone, deciding what to record, and generating reply markdown.
 
 **Knows about:**
 
-- `!kebab` command syntax (parser)
-- Domain time rules (e.g. backdating, `Europe/Zagreb`)
+- tracker command syntax (parser)
+- Domain time rules (e.g. backdating, configured local timezone)
 - Which DB operations are needed to record a log and render a dashboard reply
 
 **Does _not_ know about:**

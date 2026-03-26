@@ -60,6 +60,16 @@ Configure these in the Coolify "Variables" tab. **Never commit these to GitHub.*
 - `DB_PATH`: `/app/data/kebab.db`
 - `SUBREDDIT_NAME`: `KebabLog`
 
+Optional knobs (see `.env.example` for defaults):
+
+- `DEFAULT_TIMEZONE`: `Europe/Zagreb`
+- `ITEMS_PER_LEVEL`: `5`
+- `TRACKER_COMMAND`: `!kebab`
+- `KEBAB_COOLDOWN_HOURS`: `4`
+- `POLL_INTERVAL_MS`: `15000`
+- `REQUEST_TIMEOUT_MS`: `10000`
+- `LOG_LEVEL`: `info`
+
 ### 2.3 Containerization (Dockerfile)
 
 Since we are using **Bun**, the Dockerfile is significantly simpler and faster than a standard Node.js image.

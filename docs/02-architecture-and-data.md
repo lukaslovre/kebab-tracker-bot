@@ -12,7 +12,7 @@
 The application runs as a continuous background process with the following conceptual modules:
 
 1.  **The Listener (Poller):** Since Reddit doesn't natively push webhooks for new comments for most apps, this module should poll Reddit's listing endpoints on an interval (e.g., 10–15s). For the MVP, poll the subreddit comments listing (e.g., `GET /r/<subreddit>/comments` — append `.json` for the public endpoint or use `https://oauth.reddit.com/r/<subreddit>/comments` for OAuth-authenticated requests). Submissions can be added later via `/r/<subreddit>/new.json` if the product expands beyond comment-only tracking. Prefer OAuth-authenticated requests in production (use `https://oauth.reddit.com/...`) and use `before`/`after` parameters or track the latest processed `comment_id` to avoid reprocessing.
-2.  **The Parser:** Uses Regular Expressions (Regex) to check if a new comment contains `!kebab`. If found, it extracts optional arguments (Ratings: `\d{1,2}\/10`, Dates: `\d{4}-\d{2}-\d{2}`).
+2.  **The Parser:** Uses Regular Expressions (Regex) to check if a new comment contains the configured tracker command (default `!kebab`). If found, it extracts optional arguments (Ratings: `\d{1,2}\/10`, Dates: `\d{4}-\d{2}-\d{2}`).
 3.  **The DB Layer:** Use SQLite to insert the log, update the user's total count, and calculate the global/personal time deltas.
 4.  **The Replier:** Constructs the Markdown string (The Dashboard) and sends a request to the Reddit API to reply to the user's comment.
 
