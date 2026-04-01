@@ -22,6 +22,8 @@ Where the new logic will live:
 ## Step 1 — Lock the Devvit Domain Contract (Data + UX)
 Goal: agree on the exact “contract” before writing implementation.
 
+Source of truth: `docs/devvit/devvit-domain-contract.md`.
+
 Deliverables:
 - **Redis key schema** (final names + semantics), including:
   - `global:last_kebab_timestamp`

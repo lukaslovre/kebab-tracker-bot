@@ -38,6 +38,11 @@ This file is the source of truth for the app. It maps Reddit events to your serv
         "type": "number",
         "label": "Cooldown period (in hours)",
         "defaultValue": 4
+      },
+      "ITEMS_PER_LEVEL": {
+        "type": "number",
+        "label": "Logs needed per level",
+        "defaultValue": 5
       }
     }
   },

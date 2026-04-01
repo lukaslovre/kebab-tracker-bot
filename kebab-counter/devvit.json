@@ -20,6 +20,11 @@
         "type": "number",
         "label": "Cooldown period (in hours)",
         "defaultValue": 4
+      },
+      "ITEMS_PER_LEVEL": {
+        "type": "number",
+        "label": "Logs needed per level",
+        "defaultValue": 5
       }
     }
   },
