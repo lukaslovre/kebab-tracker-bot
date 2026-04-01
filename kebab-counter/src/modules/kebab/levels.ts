@@ -13,10 +13,7 @@ const TITLES: string[] = [
   "Kebab mit",
 ];
 
-export function getKebabLevel(
-  totalKebabs: number,
-  itemsPerLevel: number,
-): KebabLevel {
+export function getKebabLevel(totalKebabs: number, itemsPerLevel: number): KebabLevel {
   const safeTotal = Number.isFinite(totalKebabs)
     ? Math.max(0, Math.floor(totalKebabs))
     : 0;

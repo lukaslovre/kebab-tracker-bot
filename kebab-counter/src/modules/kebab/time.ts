@@ -33,9 +33,7 @@ export function formatDurationHr(
   }
 
   if (parts.length === 0) {
-    parts.push(
-      `${seconds} ${croPlural(seconds, "sekunda", "sekunde", "sekundi")}`,
-    );
+    parts.push(`${seconds} ${croPlural(seconds, "sekunda", "sekunde", "sekundi")}`);
   }
 
   return parts.join(", ");

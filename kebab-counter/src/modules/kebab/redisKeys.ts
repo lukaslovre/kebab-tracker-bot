@@ -1,5 +1,4 @@
-export const REDIS_KEY_GLOBAL_LAST_KEBAB_TIMESTAMP =
-  "global:last_kebab_timestamp";
+export const REDIS_KEY_GLOBAL_LAST_KEBAB_TIMESTAMP = "global:last_kebab_timestamp";
 
 export const PROCESSED_ITEM_TTL_SECONDS = 60 * 60 * 24 * 7;
 
