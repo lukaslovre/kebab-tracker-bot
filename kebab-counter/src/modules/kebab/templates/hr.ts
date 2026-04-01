@@ -10,47 +10,36 @@ export type KebabDashboardReplyData = {
   avgRating: number | null;
 };
 
-export function renderKebabSuccessDashboardReply(
-  data: KebabDashboardReplyData,
-): string {
-  const headerParts: string[] = ["🌯 **Kebab zabilježen!**"];
-  if (data.rating !== null) headerParts.push(`(Ocjena: ${data.rating}/10)`);
+export function renderKebabSuccessDashboardReply(data: KebabDashboardReplyData): string {
+  const header = [
+    "🌯 **Kebab zabilježen!**",
+    data.rating !== null ? `(Ocjena: ${data.rating}/10)` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
-  const lines: string[] = [headerParts.join(" "), ""];
+  const globalLine =
+    data.globalDeltaMs === null
+      ? "🚀 **Sat subreddita:** Prvi kebab ikad ovdje. Sat je upravo pokrenut."
+      : `🚨 **Sat subreddita:** Niz je prekinut! Sub je bio bez kebaba \`${formatDurationHr(
+          data.globalDeltaMs,
+        )}\`. Sat je resetiran na 0.`;
 
-  if (data.globalDeltaMs === null) {
-    lines.push(
-      "🚀 **Sat subreddita:** Prvi kebab ikad ovdje. Sat je upravo pokrenut.",
-    );
-  } else {
-    lines.push(
-      `🚨 **Sat subreddita:** Niz je prekinut! Sub je bio bez kebaba \`${formatDurationHr(
-        data.globalDeltaMs,
-      )}\`. Sat je resetiran na 0.`,
-    );
-  }
+  const personalLine =
+    data.personalDeltaMs === null
+      ? "⏱️ **Tvoj osobni niz:** Ovo ti je prvi zapis. Dobrodošao!"
+      : `⏱️ **Tvoj osobni niz:** Prošlo je \`${formatDurationHr(
+          data.personalDeltaMs,
+        )}\` od zadnjeg loga.`;
 
-  if (data.personalDeltaMs === null) {
-    lines.push("⏱️ **Tvoj osobni niz:** Ovo ti je prvi zapis. Dobrodošao!");
-  } else {
-    lines.push(
-      `⏱️ **Tvoj osobni niz:** Prošlo je \`${formatDurationHr(
-        data.personalDeltaMs,
-      )}\` od zadnjeg loga.`,
-    );
-  }
-
-  const statParts: string[] = [
-    `📈 **Tvoja statistika:** Razina **${data.level.level}** — ${data.level.title} (**${data.totalKebabs}** ukupno).`,
-  ];
-
+  let statLine = `📈 **Tvoja statistika:** Razina **${data.level.level}** — ${data.level.title} (**${data.totalKebabs}** ukupno).`;
   if (data.avgRating !== null) {
-    statParts.push(`Prosječna ocjena: \`${data.avgRating.toFixed(1)}/10\`.`);
+    statLine += ` Prosječna ocjena: \`${data.avgRating.toFixed(1)}/10\`.`;
   }
 
-  lines.push(statParts.join(" "));
-
-  return lines.join("\n");
+  // Join paragraphs with an explicit double-newline so Reddit shows clear
+  // paragraph breaks regardless of surrounding content.
+  return [header, globalLine, personalLine, statLine].join("\n\n");
 }
 
 export function renderKebabCooldownReply(options: {
@@ -82,7 +71,7 @@ export function renderKebabBackdatingNotSupportedReply(options: {
   trackerCommand: string;
 }): string {
   return [
-    "🚫 **Retro logovi više ne postoje.** Kebab se računa samo za \"sad\".",
+    '🚫 **Retro logovi više ne postoje.** Kebab se računa samo za "sad".',
     "",
     `Primjeri: \`${options.trackerCommand}\`, \`${options.trackerCommand} 8/10\``,
   ].join("\n");
