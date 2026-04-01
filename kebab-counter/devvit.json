@@ -1,0 +1,34 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "kebab-counter",
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "reddit": true,
+    "redis": true
+  },
+  "settings": {
+    "subreddit": {
+      "TRACKER_COMMAND": {
+        "type": "string",
+        "label": "Command to trigger the bot",
+        "defaultValue": "!kebab"
+      },
+      "COOLDOWN_HOURS": {
+        "type": "number",
+        "label": "Cooldown period (in hours)",
+        "defaultValue": 4
+      }
+    }
+  },
+  "triggers": {
+    "onCommentSubmit": "/internal/on-comment-submit",
+    "onPostSubmit": "/internal/on-post-submit"
+  },
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "vite build"
+  }
+}
