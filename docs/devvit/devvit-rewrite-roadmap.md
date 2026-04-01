@@ -6,7 +6,7 @@ We are rewriting **Kebab Tracker** as a **Reddit Devvit Web** app.
 Key paradigm shifts and locked rules (from the Devvit migration docs):
 - **Event-driven**: triggers (`onCommentSubmit`, `onPostSubmit`), no polling.
 - **Redis aggregates** (KV) instead of SQLite rows.
-- **No backdating**: every accepted log uses `Date.now()`.
+- **No backdating state**: every accepted log uses `Date.now()`, and extra date-like text after the command is ignored.
 - **Optional ratings**: only aggregate ratings when a rating is present; no defaults.
 - **Cooldown is loud**: on cooldown, reply with a rejection message.
 - **Global clock “Big Bang”**: first-ever log initializes `global:last_kebab_timestamp` and uses a special “clock started” reply.

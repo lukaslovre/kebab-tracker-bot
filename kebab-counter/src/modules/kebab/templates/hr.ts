@@ -66,13 +66,3 @@ export function renderKebabInvalidRatingReply(options: {
     `Primjeri: \`${options.trackerCommand}\`, \`${options.trackerCommand} 8/10\``,
   ].join("\n");
 }
-
-export function renderKebabBackdatingNotSupportedReply(options: {
-  trackerCommand: string;
-}): string {
-  return [
-    '🚫 **Retro logovi više ne postoje.** Kebab se računa samo za "sad".',
-    "",
-    `Primjeri: \`${options.trackerCommand}\`, \`${options.trackerCommand} 8/10\``,
-  ].join("\n");
-}

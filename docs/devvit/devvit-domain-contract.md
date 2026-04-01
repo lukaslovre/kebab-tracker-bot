@@ -97,10 +97,10 @@ After user `LukasLovre` successfully logs a kebab with rating `8/10`:
 - Optional rating pattern: `N/10` where `N` is an integer in **[1..10]**.
 - Whitespace is flexible: `8/10`, `8 / 10` are both accepted.
 
-### Backdating syntax (explicitly rejected)
+### Extra text after the command
 
-- Any `YYYY-MM-DD` (optionally with time `HH:mm`) after the command is treated as a **backdating attempt**.
-- Result: **reject** with a parse error reply (no state changes).
+- Any text after the command that is not a rating is ignored.
+- Date-like text such as `YYYY-MM-DD` (optionally with time `HH:mm`) does not trigger a special error.
 - There is no code path that accepts or uses user-provided timestamps.
 
 ---
@@ -145,10 +145,7 @@ Used when `user:<username>:last_kebab_timestamp` does not exist.
 **Invalid rating** (e.g. `0/10`, `12/10`):
 - `❓ **Ne kužim.** Ocjena mora biti između 1/10 i 10/10 (npr. 8/10).`
 
-**Backdating not supported** (any `YYYY-MM-DD` after command):
-- `🚫 **Retro logovi više ne postoje.** Kebab se računa samo za "sad".`
-
-Both parse error replies end with examples:
+Parse error replies end with examples:
 - `Primjeri: \`<command>\`, \`<command> 8/10\``
 
 ### Rendered examples

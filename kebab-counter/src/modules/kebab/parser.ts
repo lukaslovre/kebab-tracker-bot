@@ -3,19 +3,12 @@ export type ParsedKebabCommand = {
   rating: number | null;
 };
 
-export type KebabCommandParseError =
-  | {
-      found: true;
-      ok: false;
-      kind: "invalid_rating";
-      raw: string;
-    }
-  | {
-      found: true;
-      ok: false;
-      kind: "backdating_not_supported";
-      raw: string;
-    };
+export type KebabCommandParseError = {
+  found: true;
+  ok: false;
+  kind: "invalid_rating";
+  raw: string;
+};
 
 export type ParseKebabCommandResult =
   | { found: false }
@@ -23,7 +16,6 @@ export type ParseKebabCommandResult =
   | KebabCommandParseError;
 
 const RATING_RE = /\b(\d+)\s*\/\s*10\b/i;
-const DATE_TIME_RE = /\b(\d{4}-\d{2}-\d{2})(?:[ T]+(\d{2}:\d{2}))?\b/;
 const REGEX_SPECIALS_RE = /[.*+?^${}()|[\]\\]/g;
 
 export function buildTrackerCommandRegex(trackerCommand: string): RegExp {
@@ -39,16 +31,6 @@ export function parseKebabCommand(
   if (!match || match.index === undefined) return { found: false };
 
   const rest = text.slice(match.index + match[0].length);
-
-  const dateMatch = DATE_TIME_RE.exec(rest);
-  if (dateMatch) {
-    return {
-      found: true,
-      ok: false,
-      kind: "backdating_not_supported",
-      raw: dateMatch[0],
-    };
-  }
 
   let rating: number | null = null;
   const ratingMatch = RATING_RE.exec(rest);

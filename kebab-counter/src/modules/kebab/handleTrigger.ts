@@ -15,7 +15,6 @@ import {
   userTotalKebabsKey,
 } from "./redisKeys";
 import {
-  renderKebabBackdatingNotSupportedReply,
   renderKebabCooldownReply,
   renderKebabInvalidRatingReply,
   renderKebabSuccessDashboardReply,
@@ -44,7 +43,6 @@ const BOT_REPLY_PREFIXES: string[] = [
   "🌯 **Kebab zabilježen!**",
   "⏳ **Polako!**",
   "❓ **Ne kužim.**",
-  "🚫 **Retro logovi više ne postoje.**",
 ];
 
 let cachedAppUsernameNormalized: string | null | undefined;
@@ -176,14 +174,9 @@ export async function handleKebabTrigger(input: KebabTriggerInput): Promise<void
   });
 
   if (!parsed.ok) {
-    const markdown =
-      parsed.kind === "invalid_rating"
-        ? renderKebabInvalidRatingReply({
-            trackerCommand: kebabSettings.trackerCommand,
-          })
-        : renderKebabBackdatingNotSupportedReply({
-            trackerCommand: kebabSettings.trackerCommand,
-          });
+    const markdown = renderKebabInvalidRatingReply({
+      trackerCommand: kebabSettings.trackerCommand,
+    });
 
     await replyBestEffort({
       parentId: itemId,

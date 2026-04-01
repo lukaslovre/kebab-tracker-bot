@@ -24,9 +24,9 @@ To fit the Devvit KV data model and streamline the "gag" nature of the bot, the 
 
 ### A. The "Now-Only" Timeline (No Backdating)
 
-- Backdating is completely removed. The bot is no longer a historian; it is a real-time referee.
+- Backdating is not part of the new flow. The bot is a real-time referee.
 - When the tracker command (`!kebab`) is parsed, the timestamp is _always_ the exact moment the event fired (`Date.now()`).
-- This eliminates all "hindsight" edge cases and simplifies streak math.
+- Extra date-like text after the command is ignored, which keeps the parse contract simple.
 
 ### B. Trigger Scope (Posts + Comments)
 
